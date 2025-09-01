@@ -313,3 +313,79 @@ BEGIN
     LIMIT page_limit OFFSET page_offset;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to approve verification requests and update user roles
+CREATE OR REPLACE FUNCTION public.approve_verification(
+    request_id UUID,
+    notes TEXT DEFAULT ''
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_request RECORD;
+    new_role user_role;
+BEGIN
+    -- Get the verification request details
+    SELECT * INTO v_request
+    FROM public.verification_requests
+    WHERE id = request_id AND status = 'pending';
+
+    IF NOT FOUND THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Determine the new role based on request type
+    CASE v_request.request_type
+        WHEN 'citizen_verification' THEN
+            new_role := 'citizen';
+        WHEN 'journalist_verification' THEN
+            new_role := 'journalist';
+        WHEN 'official_verification' THEN
+            new_role := 'government';
+        ELSE
+            RETURN FALSE;
+    END CASE;
+
+    -- Update the user's role and verification status
+    UPDATE public.users
+    SET 
+        role = new_role,
+        is_verified = TRUE,
+        verified_at = NOW(),
+        verification_type = v_request.request_type,
+        updated_at = NOW()
+    WHERE id = v_request.user_id;
+
+    -- Update the verification request status
+    UPDATE public.verification_requests
+    SET 
+        status = 'approved',
+        reviewed_by = auth.uid(),
+        reviewed_at = NOW(),
+        review_notes = notes,
+        updated_at = NOW()
+    WHERE id = request_id;
+
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to reject verification requests
+CREATE OR REPLACE FUNCTION public.reject_verification(
+    request_id UUID,
+    notes TEXT DEFAULT ''
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Update the verification request status
+    UPDATE public.verification_requests
+    SET 
+        status = 'rejected',
+        reviewed_by = auth.uid(),
+        reviewed_at = NOW(),
+        review_notes = notes,
+        updated_at = NOW()
+    WHERE id = request_id AND status = 'pending';
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

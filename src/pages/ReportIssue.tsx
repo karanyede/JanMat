@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
@@ -9,11 +9,9 @@ import {
   AlertCircle,
   CheckCircle,
   X,
-  Upload,
 } from "lucide-react";
 import {
   uploadMultipleToCloudinary,
-  validateImageFile,
   compressImage,
 } from "../lib/cloudinary";
 import {
@@ -22,6 +20,7 @@ import {
   ValidationError,
 } from "../lib/validation";
 import { notifyGovernmentUsersOfNewIssue } from "../hooks/useNotifications";
+import SimpleCameraCapture from "../components/SimpleCameraCapture";
 
 const ReportIssue = () => {
   const { user } = useAuth();
@@ -39,9 +38,32 @@ const ReportIssue = () => {
     longitude: null as number | null,
   });
 
-  const [images, setImages] = useState<File[]>([]);
+  const [geotaggedPhotos, setGeotaggedPhotos] = useState<Array<{
+    blob: Blob;
+    location: { latitude: number; longitude: number; timestamp: string };
+    preview: string;
+    id: string;
+  }>>([]);
+  const [showCamera, setShowCamera] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Debug camera modal state
+  useEffect(() => {
+    console.log("ReportIssue: showCamera changed to:", showCamera);
+    if (showCamera) {
+      console.log("ReportIssue: GeotagCamera should be mounting now");
+    }
+  }, [showCamera]);
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      geotaggedPhotos.forEach(photo => {
+        URL.revokeObjectURL(photo.preview);
+      });
+    };
+  }, [geotaggedPhotos]);
 
   const categories: { value: IssueCategory; label: string; icon: string }[] = [
     { value: "infrastructure", label: "Infrastructure", icon: "🏗️" },
@@ -83,29 +105,46 @@ const ReportIssue = () => {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-
-    // Validate files
-    for (const file of files) {
-      try {
-        validateImageFile(file);
-      } catch (error) {
-        alert(error instanceof Error ? error.message : "Invalid file");
-        return;
-      }
+  const handleGeotagCapture = (imageBlob: Blob, location: { latitude: number; longitude: number; timestamp: string }) => {
+    console.log("Photo captured with location:", location);
+    console.log("Blob size:", imageBlob.size);
+    
+    const photo = {
+      blob: imageBlob,
+      location,
+      preview: URL.createObjectURL(imageBlob),
+      id: Date.now().toString() + Math.random(),
+    };
+    
+    setGeotaggedPhotos(prev => {
+      const updated = [...prev, photo];
+      console.log("Total photos now:", updated.length);
+      return updated;
+    });
+    
+    // Auto-update location if not already set
+    if (!formData.latitude || !formData.longitude) {
+      console.log("Auto-updating form location");
+      setFormData(prev => ({
+        ...prev,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        location: prev.location || `GPS: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
+      }));
     }
-
-    if (images.length + files.length > 4) {
-      alert("You can upload a maximum of 4 images.");
-      return;
-    }
-
-    setImages((prev) => [...prev, ...files]);
+    
+    // Show success message
+    alert(`📸 Photo captured successfully!\n📍 Location: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`);
   };
 
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+  const removeGeotaggedPhoto = (id: string) => {
+    setGeotaggedPhotos(prev => {
+      const photoToRemove = prev.find(p => p.id === id);
+      if (photoToRemove) {
+        URL.revokeObjectURL(photoToRemove.preview);
+      }
+      return prev.filter(p => p.id !== id);
+    });
   };
 
   const validateForm = () => {
@@ -122,7 +161,7 @@ const ReportIssue = () => {
       category: formData.category,
       priority: formData.priority,
       location: formData.location,
-      image_urls: images.map((img) => img.name), // Just for count validation
+      image_urls: geotaggedPhotos.map((photo) => photo.id), // Just for count validation
     });
 
     if (!validationResult.isValid) {
@@ -140,17 +179,23 @@ const ReportIssue = () => {
   };
 
   const uploadImages = async (): Promise<string[]> => {
-    if (images.length === 0) return [];
+    if (geotaggedPhotos.length === 0) return [];
 
     setUploadingImages(true);
     try {
-      // Compress images before upload
-      const compressedImages = await Promise.all(
-        images.map((file) => compressImage(file, 0.8))
+      // Convert blobs to files and compress them
+      const files = await Promise.all(
+        geotaggedPhotos.map(async (photo, index) => {
+          const file = new File([photo.blob], `geotagged-photo-${index + 1}.jpg`, {
+            type: 'image/jpeg',
+          });
+          return compressImage(file, 0.8);
+        })
       );
 
       // Upload to Cloudinary
-      const imageUrls = await uploadMultipleToCloudinary(compressedImages);
+      const imageUrls = await uploadMultipleToCloudinary(files);
+      
       return imageUrls;
     } catch (error) {
       console.error("Error uploading images:", error);
@@ -377,7 +422,7 @@ const ReportIssue = () => {
                   type="text"
                   value={formData.location}
                   onChange={(e) => updateFormData("location", e.target.value)}
-                  placeholder="Enter location or address"
+                  placeholder="Enter location or use GPS from camera"
                   className={`flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     errors.location ? "border-red-500" : "border-gray-300"
                   }`}
@@ -386,66 +431,107 @@ const ReportIssue = () => {
                   type="button"
                   onClick={getCurrentLocation}
                   className="px-4 py-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                  title="Get current location"
                 >
                   <MapPin className="w-5 h-5" />
                 </button>
               </div>
+              {formData.latitude && formData.longitude && (
+                <p className="text-xs text-green-600 mt-1 flex items-center space-x-1">
+                  <MapPin className="w-3 h-3" />
+                  <span>GPS: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}</span>
+                </p>
+              )}
               {errors.location && (
                 <p className="text-red-500 text-sm mt-1">{errors.location}</p>
               )}
             </div>
 
-            {/* Image Upload */}
+            {/* Geotag Photo Capture */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Photos (Optional)
+                Photos with GPS Location (Optional)
               </label>
               <div className="space-y-4">
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="cursor-pointer flex flex-col items-center space-y-2"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log("Opening geotag camera...");
+                      setShowCamera(true);
+                    }}
+                    className="w-full flex flex-col items-center space-y-2 hover:bg-gray-50 transition-colors rounded-lg p-4"
                   >
-                    <Upload className="w-8 h-8 text-gray-400" />
+                    <Camera className="w-8 h-8 text-gray-400" />
                     <div>
                       <span className="text-blue-600 hover:text-blue-700 font-medium">
-                        Click to upload
-                      </span>{" "}
-                      <span className="text-gray-500">or drag and drop</span>
+                        📷 Capture Geotagged Photos
+                      </span>
                     </div>
                     <p className="text-sm text-gray-500">
-                      PNG, JPG, WebP up to 10MB (max 4 images)
+                      Photos will automatically include GPS location and timestamp
                     </p>
-                  </label>
+                    <p className="text-xs text-gray-400">
+                      Maximum 4 photos • Location permissions required
+                    </p>
+                    {geotaggedPhotos.length === 0 && (
+                      <p className="text-xs text-orange-600 mt-2">
+                        💡 Click here to start camera and take your first photo
+                      </p>
+                    )}
+                  </button>
+                  
+                  {/* Debug info */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
+                      <div><strong>Debug Info:</strong></div>
+                      <div>Photos captured: {geotaggedPhotos.length}</div>
+                      <div>Camera open: {showCamera ? 'Yes' : 'No'}</div>
+                      <div>GPS Location: {formData.latitude && formData.longitude ? 
+                        `${formData.latitude.toFixed(4)}, ${formData.longitude.toFixed(4)}` : 'Not set'}</div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Image Preview */}
-                {images.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {images.map((image, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={URL.createObjectURL(image)}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-gray-200"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                {/* Geotagged Photos Preview */}
+                {geotaggedPhotos.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-gray-700">
+                      Captured Photos ({geotaggedPhotos.length}/4)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {geotaggedPhotos.map((photo) => (
+                        <div key={photo.id} className="relative bg-gray-50 rounded-lg p-3">
+                          <div className="flex space-x-3">
+                            <img
+                              src={photo.preview}
+                              alt="Geotagged"
+                              className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs text-gray-600 space-y-1">
+                                <div className="flex items-center space-x-1">
+                                  <MapPin className="w-3 h-3 text-green-600" />
+                                  <span className="font-mono">
+                                    {photo.location.latitude.toFixed(6)}, {photo.location.longitude.toFixed(6)}
+                                  </span>
+                                </div>
+                                <div className="text-gray-500">
+                                  📅 {new Date(photo.location.timestamp).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeGeotaggedPhoto(photo.id)}
+                              className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors flex-shrink-0"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -483,6 +569,21 @@ const ReportIssue = () => {
           </form>
         </div>
       </div>
+      
+      {/* Simple Camera Capture Modal */}
+      {showCamera && (
+        <div key="simple-camera-wrapper">
+          <SimpleCameraCapture
+            key="simple-camera"
+            onCapture={handleGeotagCapture}
+            onClose={() => {
+              console.log("ReportIssue: Closing camera");
+              setShowCamera(false);
+            }}
+            maxPhotos={4}
+          />
+        </div>
+      )}
     </div>
   );
 };
