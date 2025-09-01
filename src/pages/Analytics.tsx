@@ -114,7 +114,10 @@ const Analytics = () => {
 
       const categories: { [key: string]: number } = {};
       data?.forEach((issue) => {
-        categories[issue.category] = (categories[issue.category] || 0) + 1;
+        // Clean up and normalize category names
+        const category = issue.category ? issue.category.trim().toLowerCase() : 'other';
+        const displayCategory = category.charAt(0).toUpperCase() + category.slice(1);
+        categories[displayCategory] = (categories[displayCategory] || 0) + 1;
       });
 
       return categories;
@@ -132,7 +135,10 @@ const Analytics = () => {
 
       const statuses: { [key: string]: number } = {};
       data?.forEach((issue) => {
-        statuses[issue.status] = (statuses[issue.status] || 0) + 1;
+        // Clean up and normalize status names
+        const status = issue.status ? issue.status.trim().toLowerCase() : 'submitted';
+        const displayStatus = status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+        statuses[displayStatus] = (statuses[displayStatus] || 0) + 1;
       });
 
       return statuses;
@@ -150,7 +156,10 @@ const Analytics = () => {
 
       const priorities: { [key: string]: number } = {};
       data?.forEach((issue) => {
-        priorities[issue.priority] = (priorities[issue.priority] || 0) + 1;
+        // Clean up and normalize priority names
+        const priority = issue.priority ? issue.priority.trim().toLowerCase() : 'medium';
+        const displayPriority = priority.charAt(0).toUpperCase() + priority.slice(1);
+        priorities[displayPriority] = (priorities[displayPriority] || 0) + 1;
       });
 
       return priorities;
@@ -175,17 +184,23 @@ const Analytics = () => {
 
       const monthlyData: { [key: string]: number } = {};
       data?.forEach((issue) => {
-        const month = new Date(issue.created_at).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-        });
-        monthlyData[month] = (monthlyData[month] || 0) + 1;
+        const date = new Date(issue.created_at);
+        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        monthlyData[monthKey] = (monthlyData[monthKey] || 0) + 1;
       });
 
-      return Object.entries(monthlyData).map(([month, count]) => ({
-        month,
-        count,
-      }));
+      // Convert to array and sort chronologically
+      return Object.entries(monthlyData)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([monthKey, count]) => {
+          const [year, month] = monthKey.split('-');
+          const date = new Date(parseInt(year), parseInt(month) - 1);
+          const monthName = date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+          });
+          return { month: monthName, count };
+        });
     } catch (error) {
       console.error("Error fetching issues by month:", error);
       return [];
@@ -201,7 +216,28 @@ const Analytics = () => {
       const locations: { [key: string]: number } = {};
       data?.forEach((issue) => {
         if (issue.location) {
-          locations[issue.location] = (locations[issue.location] || 0) + 1;
+          // Filter out GPS coordinate entries and clean up location names
+          let locationName = issue.location.trim();
+          
+          // If it's a GPS coordinate format, extract meaningful info or skip
+          if (locationName.startsWith('GPS:')) {
+            // Extract coordinates and create a more readable format
+            const coordMatch = locationName.match(/GPS:\s*([-\d.]+),\s*([-\d.]+)/);
+            if (coordMatch) {
+              const [, lat, lng] = coordMatch;
+              locationName = `Location (${parseFloat(lat).toFixed(2)}, ${parseFloat(lng).toFixed(2)})`;
+            } else {
+              return; // Skip invalid GPS formats
+            }
+          }
+          
+          // Group similar locations and clean up names
+          locationName = locationName.replace(/\s+/g, ' ').trim();
+          
+          // Capitalize first letter of each word for consistency
+          locationName = locationName.replace(/\b\w/g, (l: string) => l.toUpperCase());
+          
+          locations[locationName] = (locations[locationName] || 0) + 1;
         }
       });
 
@@ -453,47 +489,9 @@ const Analytics = () => {
               Issues by Status
             </h3>
             <div className="space-y-4">
-              {Object.entries(data.issuesByStatus).map(([status, count]) => {
-                const total = Object.values(data.issuesByStatus).reduce(
-                  (a, b) => a + b,
-                  0
-                );
-                const percentage = total > 0 ? (count / total) * 100 : 0;
-
-                return (
-                  <div
-                    key={status}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="text-sm font-medium text-gray-700 capitalize">
-                      {status.replace("_", " ")}
-                    </span>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${percentage}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm text-gray-600 w-12 text-right">
-                        {count}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Issues by Category */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Issues by Category
-            </h3>
-            <div className="space-y-4">
-              {Object.entries(data.issuesByCategory).map(
-                ([category, count]) => {
-                  const total = Object.values(data.issuesByCategory).reduce(
+              {Object.entries(data.issuesByStatus).length > 0 ? (
+                Object.entries(data.issuesByStatus).map(([status, count]) => {
+                  const total = Object.values(data.issuesByStatus).reduce(
                     (a, b) => a + b,
                     0
                   );
@@ -501,16 +499,16 @@ const Analytics = () => {
 
                   return (
                     <div
-                      key={category}
+                      key={status}
                       className="flex items-center justify-between"
                     >
-                      <span className="text-sm font-medium text-gray-700 capitalize">
-                        {category}
+                      <span className="text-sm font-medium text-gray-700">
+                        {status}
                       </span>
                       <div className="flex items-center space-x-3">
                         <div className="w-32 bg-gray-200 rounded-full h-2">
                           <div
-                            className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${percentage}%` }}
                           ></div>
                         </div>
@@ -520,7 +518,59 @@ const Analytics = () => {
                       </div>
                     </div>
                   );
-                }
+                })
+              ) : (
+                <div className="text-center py-8">
+                  <BarChart3 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No status data available</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Issues by Category */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Issues by Category
+            </h3>
+            <div className="space-y-4">
+              {Object.entries(data.issuesByCategory).length > 0 ? (
+                Object.entries(data.issuesByCategory).map(
+                  ([category, count]) => {
+                    const total = Object.values(data.issuesByCategory).reduce(
+                      (a, b) => a + b,
+                      0
+                    );
+                    const percentage = total > 0 ? (count / total) * 100 : 0;
+
+                    return (
+                      <div
+                        key={category}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="text-sm font-medium text-gray-700">
+                          {category}
+                        </span>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-32 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${percentage}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-gray-600 w-12 text-right">
+                            {count}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                )
+              ) : (
+                <div className="text-center py-8">
+                  <BarChart3 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No category data available</p>
+                </div>
               )}
             </div>
           </div>
@@ -533,33 +583,43 @@ const Analytics = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Monthly Issue Trends
             </h3>
-            <div className="h-64 flex items-end justify-between space-x-2">
-              {data.issuesByMonth.map((item, index) => {
-                const maxCount = Math.max(
-                  ...data.issuesByMonth.map((d) => d.count),
-                  1
-                );
-                const height = (item.count / maxCount) * 100;
+            {data.issuesByMonth.length > 0 ? (
+              <div className="h-64 flex items-end justify-between space-x-2">
+                {data.issuesByMonth.map((item, index) => {
+                  const maxCount = Math.max(
+                    ...data.issuesByMonth.map((d) => d.count),
+                    1
+                  );
+                  const height = (item.count / maxCount) * 100;
 
-                return (
-                  <div
-                    key={index}
-                    className="flex flex-col items-center flex-1"
-                  >
-                    <div className="text-xs text-gray-600 mb-2">
-                      {item.count}
-                    </div>
+                  return (
                     <div
-                      className="bg-blue-500 w-full rounded-t transition-all duration-300 hover:bg-blue-600"
-                      style={{ height: `${height}%`, minHeight: "4px" }}
-                    ></div>
-                    <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-left">
-                      {item.month}
+                      key={index}
+                      className="flex flex-col items-center flex-1"
+                    >
+                      <div className="text-xs text-gray-600 mb-2">
+                        {item.count}
+                      </div>
+                      <div
+                        className="bg-blue-500 w-full rounded-t transition-all duration-300 hover:bg-blue-600"
+                        style={{ height: `${height}%`, minHeight: "4px" }}
+                      ></div>
+                      <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-left">
+                        {item.month}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">No trend data available</p>
+                  <p className="text-xs text-gray-400 mt-1">Data will appear as issues are reported over time</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Top Locations */}
@@ -568,19 +628,27 @@ const Analytics = () => {
               Top Issue Locations
             </h3>
             <div className="space-y-3">
-              {data.topLocations.slice(0, 8).map((location, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-700 truncate">
-                      {location.location}
+              {data.topLocations.length > 0 ? (
+                data.topLocations.slice(0, 8).map((location, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-700 truncate max-w-32">
+                        {location.location}
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {location.count}
                     </span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900">
-                    {location.count}
-                  </span>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">No location data available</p>
+                  <p className="text-xs text-gray-400 mt-1">Locations will appear as issues are reported</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

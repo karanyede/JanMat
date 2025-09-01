@@ -137,14 +137,8 @@ const Dashboard = () => {
         ? (issue.upvoted_by || []).filter((id) => id !== user.id)
         : [...(issue.upvoted_by || []), user.id];
 
-      console.log("Updating upvote:", {
-        issueId,
-        hasUpvoted,
-        newUpvotes: newUpvotedBy.length,
-        userId: user.id,
-      });
+      console.log("Updating upvote for issue:", issueId, { hasUpvoted, newUpvotedBy });
 
-      // Update in database
       const { error } = await supabase
         .from("issues")
         .update({
@@ -155,13 +149,11 @@ const Dashboard = () => {
         .eq("id", issueId);
 
       if (error) {
-        console.error("Database error updating upvote:", error);
-        throw error;
+        console.error("Error updating upvote:", error);
+        return;
       }
 
-      console.log("Upvote updated successfully");
-
-      // Update local state
+      // Update local state immediately
       setIssues((prevIssues) =>
         prevIssues.map((issue) =>
           issue.id === issueId
@@ -173,10 +165,10 @@ const Dashboard = () => {
             : issue
         )
       );
+
+      console.log("Upvote updated successfully");
     } catch (error) {
       console.error("Error updating upvote:", error);
-      // Optionally show user-friendly error message
-      alert("Failed to update vote. Please try again.");
     } finally {
       setUpvotingIds((prev) => {
         const newSet = new Set(prev);
