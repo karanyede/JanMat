@@ -107,9 +107,6 @@ const ReportIssue = () => {
     }
   };
 
-  const handleGeotagCapture = (imageBlob: Blob, location: { latitude: number; longitude: number; timestamp: string }) => {
-    console.log("Photo captured with location:", location);
-    console.log("Blob size:", imageBlob.size);
     
     const photo = {
       blob: imageBlob,
