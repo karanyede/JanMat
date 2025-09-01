@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { Issue, News, Poll } from "../types";
@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Plus,
   Filter,
+  MapPin,
 } from "lucide-react";
 import { formatRelativeTime } from "../lib/utils";
 
@@ -38,8 +39,8 @@ const GovernmentDashboard = () => {
   });
 
   const [recentIssues, setRecentIssues] = useState<Issue[]>([]);
-  const [recentNews, setRecentNews] = useState<News[]>([]);
-  const [activePolls, setActivePolls] = useState<Poll[]>([]);
+  const [_recentNews, setRecentNews] = useState<News[]>([]);
+  const [_activePolls, setActivePolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showCreatePoll, setShowCreatePoll] = useState(false);
@@ -258,6 +259,31 @@ const GovernmentDashboard = () => {
         return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getDepartmentName = (category: string) => {
+    switch (category) {
+      case "infrastructure":
+        return "Public Works Department";
+      case "sanitation":
+        return "Sanitation & Hygiene Department";
+      case "transportation":
+        return "Transportation Department";
+      case "safety":
+        return "Public Safety Department";
+      case "environment":
+        return "Environmental Department";
+      case "utilities":
+        return "Utilities & Services Department";
+      case "healthcare":
+        return "Health Department";
+      case "education":
+        return "Education Department";
+      case "other":
+        return "General Administration";
+      default:
+        return "General Administration";
     }
   };
 
@@ -494,10 +520,31 @@ const GovernmentDashboard = () => {
                       >
                         {issue.priority}
                       </span>
+                      <span
+                        className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
+                      >
+                        📋 {issue.category.charAt(0).toUpperCase() + issue.category.slice(1).replace('_', ' ')} Dept.
+                      </span>
                     </div>
                     <p className="text-gray-600 text-sm mb-2">
                       {issue.description}
                     </p>
+                    
+                    {/* Department Assignment Info */}
+                    <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                      <div className="flex flex-wrap items-center gap-4 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-gray-700">Department:</span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                            {getDepartmentName(issue.category)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-gray-700">Category:</span>
+                          <span className="text-gray-600">{issue.category.charAt(0).toUpperCase() + issue.category.slice(1).replace('_', ' ')}</span>
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex flex-wrap items-center text-sm text-gray-500 gap-4">
                       <span>
                         By: {issue.reporter?.full_name || "Anonymous"}
@@ -506,6 +553,20 @@ const GovernmentDashboard = () => {
                       <span>{formatRelativeTime(issue.created_at)}</span>
                       <span>👍 {issue.upvotes}</span>
                     </div>
+                    
+                    {/* Solve Problem - View Location Button for Government Officials */}
+                    {(issue.status === "in_progress" || issue.status === "under_review") && 
+                     issue.latitude && issue.longitude && (
+                      <div className="mt-3">
+                        <Link
+                          to={`/issues/${issue.id}?showMap=true`}
+                          className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <MapPin size={16} strokeWidth={1.5} />
+                          <span>Solve Problem - View Location</span>
+                        </Link>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-shrink-0 md:ml-4">
                     <label className="block text-xs font-medium text-gray-700 mb-1">

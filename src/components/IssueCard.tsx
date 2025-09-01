@@ -3,6 +3,8 @@ import { Heart, MessageCircle, Share, MapPin } from "lucide-react";
 import { Issue } from "../types";
 import { useAuth } from "../hooks/useAuth";
 import { formatRelativeTime } from "../lib/utils";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 interface IssueCardProps {
   issue: Issue;
@@ -12,6 +14,37 @@ interface IssueCardProps {
 
 const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
   const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Fetch user role when component mounts
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (user) {
+        try {
+          // First try to get role from user_metadata (for auth users)
+          if (user.user_metadata?.role) {
+            setUserRole(user.user_metadata.role);
+          } else {
+            // Fallback to database query
+            const { data: userData, error } = await supabase
+              .from("users")
+              .select("role")
+              .eq("id", user.id)
+              .single();
+            
+            if (!error && userData) {
+              setUserRole(userData.role);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+        }
+      }
+    };
+
+    fetchUserRole();
+  }, [user]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "submitted":
@@ -43,7 +76,7 @@ const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
   };
 
   return (
-    <article className="bg-white border-b border-gray-200 md:border md:rounded-lg md:mb-6 overflow-hidden">
+    <article className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden shadow-sm hover:shadow-md transition-shadow max-w-2xl mx-auto">
       {/* Header - Instagram style */}
       <div className="flex items-center justify-between p-3">
         <div className="flex items-center space-x-3">
@@ -89,21 +122,26 @@ const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
         </div>
       </div>
 
-      {/* Images - Instagram style */}
+      {/* Images - Clickable to view issue details */}
       {issue.image_urls && issue.image_urls.length > 0 && (
         <div className="relative">
-          <div className="aspect-square bg-gray-100">
-            <img
-              src={issue.image_urls[0]}
-              alt="Issue"
-              className="w-full h-full object-cover"
-            />
-            {issue.image_urls.length > 1 && (
-              <div className="absolute top-3 right-3 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full">
-                1/{issue.image_urls.length}
+          <Link to={`/issues/${issue.id}`} className="block">
+            <div className="w-full max-h-96 bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity">
+              <img
+                src={issue.image_urls[0]}
+                alt="Issue"
+                className="w-full h-full object-contain max-h-96"
+              />
+              {issue.image_urls.length > 1 && (
+                <div className="absolute top-3 right-3 bg-black bg-opacity-70 text-white text-xs px-3 py-1 rounded-full pointer-events-none">
+                  1/{issue.image_urls.length} 📷
+                </div>
+              )}
+              <div className="absolute bottom-3 left-3 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                Click to view details
               </div>
-            )}
-          </div>
+            </div>
+          </Link>
         </div>
       )}
 
@@ -179,6 +217,21 @@ const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
             {issue.priority}
           </span>
         </div>
+
+        {/* Solve Problem Button - ONLY for Government Officials */}
+        {user && userRole === "government" &&
+         (issue.status === "in_progress" || issue.status === "under_review") && 
+         issue.latitude && issue.longitude && (
+          <div className="mt-3 mb-2">
+            <Link
+              to={`/issues/${issue.id}?showMap=true`}
+              className="flex items-center justify-center space-x-2 w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+            >
+              <MapPin size={18} strokeWidth={1.5} />
+              <span>Solve Problem - View Location</span>
+            </Link>
+          </div>
+        )}
 
         {/* View comments link */}
         <Link

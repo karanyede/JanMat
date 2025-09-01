@@ -9,18 +9,21 @@ import {
   MoreVertical,
   Flag,
   ArrowLeft,
+  Navigation,
 } from "lucide-react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { Issue, Comment } from "../types";
 import LoadingSpinner from "../components/LoadingSpinner";
+import LocationMap from "../components/LocationMap";
 import { formatRelativeTime } from "../lib/utils";
 
 const IssueDetails = () => {
   const { id: issueId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [issue, setIssue] = useState<Issue | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -30,6 +33,8 @@ const IssueDetails = () => {
   const [error, setError] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showMapExpanded, setShowMapExpanded] = useState(false);
 
   const fetchIssueDetails = async () => {
     if (!issueId) return;
@@ -117,16 +122,19 @@ const IssueDetails = () => {
     }
 
     try {
-      const hasUpvoted = issue.upvoted_by.includes(user.id);
+      const hasUpvoted = issue.upvoted_by?.includes(user.id) || false;
       const newUpvotedBy = hasUpvoted
-        ? issue.upvoted_by.filter((id) => id !== user.id)
-        : [...issue.upvoted_by, user.id];
+        ? (issue.upvoted_by || []).filter((id) => id !== user.id)
+        : [...(issue.upvoted_by || []), user.id];
+
+      console.log("Updating upvote for issue:", issue.id, { hasUpvoted, newUpvotedBy });
 
       const { error } = await supabase
         .from("issues")
         .update({
           upvotes: newUpvotedBy.length,
           upvoted_by: newUpvotedBy,
+          updated_at: new Date().toISOString(),
         })
         .eq("id", issue.id);
 
@@ -135,17 +143,16 @@ const IssueDetails = () => {
         return;
       }
 
-      setIssue((prev) =>
-        prev
-          ? {
-              ...prev,
-              upvotes: newUpvotedBy.length,
-              upvoted_by: newUpvotedBy,
-            }
-          : null
-      );
-    } catch (err) {
-      console.error("Error upvoting:", err);
+      // Update local state immediately
+      setIssue({
+        ...issue,
+        upvotes: newUpvotedBy.length,
+        upvoted_by: newUpvotedBy,
+      });
+
+      console.log("Upvote updated successfully");
+    } catch (error) {
+      console.error("Error upvoting:", error);
     }
   };
 
@@ -255,6 +262,39 @@ const IssueDetails = () => {
     fetchUserProfile();
   }, [issueId, user]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.dropdown-container')) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showDropdown]);
+
+  // Check URL parameter for showMap and automatically show the map
+  useEffect(() => {
+    const showMapParam = searchParams.get('showMap');
+    if (showMapParam === 'true') {
+      setShowMapExpanded(true);
+      // Scroll to the map section after a short delay to ensure it's rendered
+      setTimeout(() => {
+        const mapElement = document.getElementById('issue-location-map');
+        if (mapElement) {
+          mapElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 500);
+    }
+  }, [searchParams]);
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -324,9 +364,30 @@ const IssueDetails = () => {
           <h1 className="text-lg font-semibold text-gray-900 flex-1 truncate">
             {issue.title}
           </h1>
-          <button className="p-2 hover:bg-gray-100 rounded-lg">
-            <MoreVertical size={20} />
-          </button>
+          {/* More Options Dropdown */}
+          <div className="relative dropdown-container">
+            <button 
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+            >
+              <MoreVertical size={20} />
+            </button>
+            
+            {/* Dropdown Menu */}
+            {showDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                <div className="py-1">
+                  <button
+                    onClick={() => setShowDropdown(false)}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                  >
+                    <Flag size={16} className="mr-2" />
+                    Report Issue
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -366,7 +427,14 @@ const IssueDetails = () => {
                   <span>{formatRelativeTime(issue.created_at)}</span>
                   <span>•</span>
                   <MapPin size={12} />
-                  <span>{issue.location}</span>
+                  <div className="flex flex-col">
+                    <span>{issue.location}</span>
+                    {userProfile?.role === "government" && issue.latitude && issue.longitude && (
+                      <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1">
+                        📍 GPS: {parseFloat(issue.latitude.toString()).toFixed(4)}, {parseFloat(issue.longitude.toString()).toFixed(4)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex space-x-2">
@@ -458,6 +526,16 @@ const IssueDetails = () => {
                 <button className="text-gray-600 hover:text-gray-800">
                   <Share size={24} />
                 </button>
+                {/* Quick Location Button for Government Users */}
+                {userProfile?.role === "government" && issue.latitude && issue.longitude && (
+                  <button 
+                    onClick={() => window.open(`https://www.google.com/maps?q=${issue.latitude},${issue.longitude}`, '_blank')}
+                    className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded-full transition-colors"
+                    title="View location on Google Maps"
+                  >
+                    <Navigation size={20} />
+                  </button>
+                )}
               </div>
               <button className="text-gray-600 hover:text-gray-800">
                 <Flag size={20} />
@@ -492,6 +570,33 @@ const IssueDetails = () => {
             )}
           </div>
         </div>
+
+        {/* Location Map - Only visible to Government Officials */}
+        {userProfile?.role === "government" && issue.latitude && issue.longitude && (
+          <div 
+            id="issue-location-map"
+            className={`bg-white md:border md:rounded-lg md:mt-6 overflow-hidden ${showMapExpanded ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
+          >
+            {showMapExpanded && (
+              <div className="bg-blue-600 text-white p-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  Problem Location - Ready to Solve
+                </h3>
+                <p className="text-blue-100 text-sm mt-1">
+                  Use the map below to navigate to the issue location and resolve the problem.
+                </p>
+              </div>
+            )}
+            <LocationMap
+              latitude={parseFloat(issue.latitude.toString())}
+              longitude={parseFloat(issue.longitude.toString())}
+              location={issue.location}
+              title={showMapExpanded ? `${issue.title} - Action Required` : issue.title}
+              showDirections={true}
+            />
+          </div>
+        )}
 
         {/* Comments Section */}
         <div className="bg-white md:border md:rounded-lg md:mt-6 overflow-hidden">

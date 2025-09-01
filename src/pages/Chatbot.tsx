@@ -3,6 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import { ChatMessage } from "../types";
 import { Send, Bot, Loader2 } from "lucide-react";
 
+
 const Chatbot = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([
