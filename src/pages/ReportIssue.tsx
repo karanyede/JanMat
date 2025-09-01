@@ -50,9 +50,11 @@ const ReportIssue = () => {
 
   // Debug camera modal state
   useEffect(() => {
-    console.log("ReportIssue: showCamera changed to:", showCamera);
-    if (showCamera) {
-      console.log("ReportIssue: GeotagCamera should be mounting now");
+    if (process.env.NODE_ENV === "development") {
+      console.log("ReportIssue: showCamera changed to:", showCamera);
+      if (showCamera) {
+        console.log("ReportIssue: GeotagCamera should be mounting now");
+      }
     }
   }, [showCamera]);
 
