@@ -4,7 +4,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import NewsFeed from "./pages/NewsFeed";
@@ -22,11 +24,11 @@ import Analytics from "./pages/Analytics";
 import VerificationCenter from "./components/VerificationCenter";
 import AdminVerificationPanel from "./components/AdminVerificationPanel";
 import NewsPost from "./components/NewsPost";
+import CameraTest from "./components/CameraTest";
 
 function AppContent() {
   const { user, loading } = useAuth();
 
-  // Show loading spinner while checking authentication
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -69,6 +71,7 @@ function AppContent() {
                 element={<AdminVerificationPanel />}
               />
               <Route path="analytics" element={<Analytics />} />
+              <Route path="camera-test" element={<CameraTest />} />
             </Route>
             {/* Story viewer outside layout for full-screen experience */}
             <Route path="story/:issueId" element={<StoryViewer />} />

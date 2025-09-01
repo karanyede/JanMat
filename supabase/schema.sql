@@ -48,6 +48,9 @@ CREATE TABLE IF NOT EXISTS public.users (
     avatar_url TEXT,
     bio TEXT,
     is_public BOOLEAN DEFAULT true NOT NULL,
+    is_verified BOOLEAN DEFAULT false NOT NULL,
+    verification_type TEXT,
+    verified_at TIMESTAMPTZ,
     followers UUID[] DEFAULT '{}',
     following UUID[] DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
@@ -165,6 +168,21 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+-- Verification requests table
+CREATE TABLE IF NOT EXISTS public.verification_requests (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    request_type TEXT NOT NULL CHECK (request_type IN ('citizen_verification', 'journalist_verification', 'official_verification')),
+    documents TEXT[] DEFAULT '{}',
+    reason TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+    reviewed_by UUID REFERENCES public.users(id),
+    reviewed_at TIMESTAMPTZ,
+    review_notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_issues_status ON public.issues(status);
 CREATE INDEX IF NOT EXISTS idx_issues_category ON public.issues(category);
@@ -192,6 +210,10 @@ CREATE INDEX IF NOT EXISTS idx_stories_expires_at ON public.stories(expires_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON public.notifications(read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_verification_requests_user_id ON public.verification_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_verification_requests_status ON public.verification_requests(status);
+CREATE INDEX IF NOT EXISTS idx_verification_requests_created_at ON public.verification_requests(created_at DESC);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -236,5 +258,11 @@ CREATE TRIGGER handle_updated_at
 DROP TRIGGER IF EXISTS handle_updated_at ON public.polls;
 CREATE TRIGGER handle_updated_at
     BEFORE UPDATE ON public.polls
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS handle_updated_at ON public.verification_requests;
+CREATE TRIGGER handle_updated_at
+    BEFORE UPDATE ON public.verification_requests
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_updated_at();
