@@ -28,16 +28,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle auth callback from URL hash
+    const handleAuthCallback = async () => {
+      try {
+        // This will automatically handle the session from URL hash
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("Error getting session:", error);
+        }
+
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.error("Auth callback error:", error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    handleAuthCallback();
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.email);
       setUser(session?.user ?? null);
       setLoading(false);
 
@@ -104,10 +124,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signInWithGoogle = async (): Promise<{ data: any; error: any }> => {
     setLoading(true);
     try {
+      // Use environment variable if available, otherwise use current origin
+      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+      const redirectTo = `${siteUrl}/dashboard`;
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo,
         },
       });
       if (error) return { data: null, error };

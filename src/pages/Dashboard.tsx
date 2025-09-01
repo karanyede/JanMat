@@ -13,6 +13,24 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Handle authentication callback and clean up URL
+  useEffect(() => {
+    const handleAuthCallback = () => {
+      // If there are auth tokens in the URL hash, clean them up
+      if (window.location.hash.includes("access_token")) {
+        console.log("Cleaning up authentication tokens from URL");
+        // Clean the URL without reloading the page
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+      }
+    };
+
+    handleAuthCallback();
+  }, []);
+
   // Redirect government users to their specialized dashboard
   useEffect(() => {
     const checkUserRole = async () => {
@@ -137,7 +155,10 @@ const Dashboard = () => {
         ? (issue.upvoted_by || []).filter((id) => id !== user.id)
         : [...(issue.upvoted_by || []), user.id];
 
-      console.log("Updating upvote for issue:", issueId, { hasUpvoted, newUpvotedBy });
+      console.log("Updating upvote for issue:", issueId, {
+        hasUpvoted,
+        newUpvotedBy,
+      });
 
       const { error } = await supabase
         .from("issues")
