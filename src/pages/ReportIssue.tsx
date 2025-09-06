@@ -154,22 +154,42 @@ const ReportIssue = () => {
       return false;
     }
 
+    // Enhanced validation for location - accept either text location or GPS coordinates
+    const hasLocationText = formData.location && formData.location.trim().length > 0;
+    const hasGPSCoordinates = formData.latitude && formData.longitude;
+    const effectiveLocation = hasGPSCoordinates && formData.latitude && formData.longitude ? 
+      `GPS: ${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}` : 
+      formData.location;
+
     // Use comprehensive validation
     const validationResult = validateIssue({
       title: formData.title,
       description: formData.description,
       category: formData.category,
       priority: formData.priority,
-      location: formData.location,
+      location: effectiveLocation,
       image_urls: geotaggedPhotos.map((photo) => photo.id), // Just for count validation
     });
 
+    // Custom location validation that considers GPS coordinates
+    const newErrors: Record<string, string> = {};
+    
     if (!validationResult.isValid) {
-      // Convert validation errors to the expected format
-      const newErrors: Record<string, string> = {};
       validationResult.errors.forEach((error: ValidationError) => {
+        // Skip location error if we have GPS coordinates
+        if (error.field === 'location' && hasGPSCoordinates) {
+          return;
+        }
         newErrors[error.field] = error.message;
       });
+    }
+
+    // Add custom location validation
+    if (!hasLocationText && !hasGPSCoordinates) {
+      newErrors.location = "Location is required. Either enter manually or capture geotagged photos.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return false;
     }
@@ -231,7 +251,9 @@ const ReportIssue = () => {
           description: formData.description,
           category: formData.category,
           priority: formData.priority,
-          location: formData.location,
+          location: formData.latitude && formData.longitude ? 
+            `GPS: ${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}` : 
+            formData.location,
           latitude: formData.latitude,
           longitude: formData.longitude,
           status: "submitted",
@@ -417,31 +439,68 @@ const ReportIssue = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Location *
               </label>
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => updateFormData("location", e.target.value)}
-                  placeholder="Enter location or use GPS from camera"
-                  className={`flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.location ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={getCurrentLocation}
-                  className="px-4 py-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                  title="Get current location"
-                >
-                  <MapPin className="w-5 h-5" />
-                </button>
-              </div>
+              
+              {/* Show GPS coordinates if available */}
               {formData.latitude && formData.longitude && (
-                <p className="text-xs text-green-600 mt-1 flex items-center space-x-1">
-                  <MapPin className="w-3 h-3" />
-                  <span>GPS: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}</span>
-                </p>
+                <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 flex items-center space-x-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>📍 GPS Location Captured</span>
+                  </p>
+                  <p className="text-xs text-green-600 mt-1 font-mono">
+                    {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                  </p>
+                  {geotaggedPhotos.length > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✅ Location automatically captured from geotagged photos
+                    </p>
+                  )}
+                </div>
               )}
+              
+              {/* Show manual input only if no GPS coordinates available */}
+              {(!formData.latitude || !formData.longitude) && (
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => updateFormData("location", e.target.value)}
+                    placeholder="Enter location or use GPS from camera"
+                    className={`flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.location ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={getCurrentLocation}
+                    className="px-4 py-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                    title="Get current location"
+                  >
+                    <MapPin className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+              
+              {/* Show option to manually override GPS location */}
+              {(formData.latitude && formData.longitude) && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        latitude: null,
+                        longitude: null,
+                        location: ""
+                      }));
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 underline"
+                  >
+                    📝 Enter location manually instead
+                  </button>
+                </div>
+              )}
+              
               {errors.location && (
                 <p className="text-red-500 text-sm mt-1">{errors.location}</p>
               )}
@@ -471,9 +530,14 @@ const ReportIssue = () => {
                     <p className="text-sm text-gray-500">
                       Photos will automatically include GPS location and timestamp
                     </p>
-                    <p className="text-xs text-gray-400">
-                      Maximum 4 photos • Location permissions required
-                    </p>
+                    <div className="text-xs text-gray-400 space-y-1">
+                      <p>Maximum 4 photos • Location permissions required</p>
+                      {!formData.latitude && !formData.longitude && (
+                        <p className="text-blue-600 font-medium">
+                          💡 Taking geotagged photos will auto-fill your location!
+                        </p>
+                      )}
+                    </div>
                     {geotaggedPhotos.length === 0 && (
                       <p className="text-xs text-orange-600 mt-2">
                         💡 Click here to start camera and take your first photo
