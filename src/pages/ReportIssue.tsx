@@ -154,12 +154,18 @@ const ReportIssue = () => {
       return false;
     }
 
-    // Enhanced validation for location - accept either text location or GPS coordinates
+    // Enhanced validation for location - accept either text location, GPS coordinates, or geotagged photos
     const hasLocationText = formData.location && formData.location.trim().length > 0;
     const hasGPSCoordinates = formData.latitude && formData.longitude;
-    const effectiveLocation = hasGPSCoordinates && formData.latitude && formData.longitude ? 
-      `GPS: ${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}` : 
-      formData.location;
+    const hasGeotaggedPhotos = geotaggedPhotos.length > 0;
+    
+    // Determine effective location for validation
+    let effectiveLocation = formData.location;
+    if (hasGPSCoordinates && formData.latitude && formData.longitude) {
+      effectiveLocation = `GPS: ${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}`;
+    } else if (hasGeotaggedPhotos && geotaggedPhotos[0]) {
+      effectiveLocation = `GPS: ${geotaggedPhotos[0].location.latitude.toFixed(6)}, ${geotaggedPhotos[0].location.longitude.toFixed(6)}`;
+    }
 
     // Use comprehensive validation
     const validationResult = validateIssue({
@@ -171,13 +177,13 @@ const ReportIssue = () => {
       image_urls: geotaggedPhotos.map((photo) => photo.id), // Just for count validation
     });
 
-    // Custom location validation that considers GPS coordinates
+    // Custom location validation that considers GPS coordinates and geotagged photos
     const newErrors: Record<string, string> = {};
     
     if (!validationResult.isValid) {
       validationResult.errors.forEach((error: ValidationError) => {
-        // Skip location error if we have GPS coordinates
-        if (error.field === 'location' && hasGPSCoordinates) {
+        // Skip location error if we have GPS coordinates or geotagged photos
+        if (error.field === 'location' && (hasGPSCoordinates || hasGeotaggedPhotos)) {
           return;
         }
         newErrors[error.field] = error.message;
@@ -185,8 +191,8 @@ const ReportIssue = () => {
     }
 
     // Add custom location validation
-    if (!hasLocationText && !hasGPSCoordinates) {
-      newErrors.location = "Location is required. Either enter manually or capture geotagged photos.";
+    if (!hasLocationText && !hasGPSCoordinates && !hasGeotaggedPhotos) {
+      newErrors.location = "Location is required. Either enter manually, use GPS, or capture geotagged photos.";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -243,6 +249,22 @@ const ReportIssue = () => {
       // Upload images first
       const imageUrls = await uploadImages();
 
+      // Determine coordinates for submission
+      let submissionLatitude = formData.latitude;
+      let submissionLongitude = formData.longitude;
+      let submissionLocation = formData.location;
+
+      // Use coordinates from first geotagged photo if form coordinates aren't set
+      if ((!submissionLatitude || !submissionLongitude) && geotaggedPhotos.length > 0) {
+        submissionLatitude = geotaggedPhotos[0].location.latitude;
+        submissionLongitude = geotaggedPhotos[0].location.longitude;
+      }
+
+      // Generate location text if we have coordinates
+      if (submissionLatitude && submissionLongitude && !submissionLocation.trim()) {
+        submissionLocation = `GPS: ${submissionLatitude.toFixed(6)}, ${submissionLongitude.toFixed(6)}`;
+      }
+
       // Create issue with image URLs
       const { data: issue, error: issueError } = await supabase
         .from("issues")
@@ -251,11 +273,9 @@ const ReportIssue = () => {
           description: formData.description,
           category: formData.category,
           priority: formData.priority,
-          location: formData.latitude && formData.longitude ? 
-            `GPS: ${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}` : 
-            formData.location,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
+          location: submissionLocation,
+          latitude: submissionLatitude,
+          longitude: submissionLongitude,
           status: "submitted",
           reporter_id: user.id,
           is_public: true,
@@ -440,16 +460,22 @@ const ReportIssue = () => {
                 Location *
               </label>
               
-              {/* Show GPS coordinates if available */}
-              {formData.latitude && formData.longitude && (
+              {/* Show GPS coordinates if available from photos or manual GPS */}
+              {((formData.latitude && formData.longitude) || geotaggedPhotos.length > 0) && (
                 <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm text-green-800 flex items-center space-x-2">
                     <MapPin className="w-4 h-4" />
                     <span>📍 GPS Location Captured</span>
                   </p>
-                  <p className="text-xs text-green-600 mt-1 font-mono">
-                    {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
-                  </p>
+                  {formData.latitude && formData.longitude ? (
+                    <p className="text-xs text-green-600 mt-1 font-mono">
+                      {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                    </p>
+                  ) : geotaggedPhotos.length > 0 && (
+                    <p className="text-xs text-green-600 mt-1 font-mono">
+                      {geotaggedPhotos[0].location.latitude.toFixed(6)}, {geotaggedPhotos[0].location.longitude.toFixed(6)}
+                    </p>
+                  )}
                   {geotaggedPhotos.length > 0 && (
                     <p className="text-xs text-green-600 mt-1">
                       ✅ Location automatically captured from geotagged photos
@@ -458,8 +484,8 @@ const ReportIssue = () => {
                 </div>
               )}
               
-              {/* Show manual input only if no GPS coordinates available */}
-              {(!formData.latitude || !formData.longitude) && (
+              {/* Show manual input only if no GPS coordinates AND no geotagged photos */}
+              {(!formData.latitude || !formData.longitude) && geotaggedPhotos.length === 0 && (
                 <div className="flex space-x-2">
                   <input
                     type="text"
@@ -482,7 +508,7 @@ const ReportIssue = () => {
               )}
               
               {/* Show option to manually override GPS location */}
-              {(formData.latitude && formData.longitude) && (
+              {((formData.latitude && formData.longitude) || geotaggedPhotos.length > 0) && (
                 <div className="mt-2">
                   <button
                     type="button"
@@ -493,10 +519,15 @@ const ReportIssue = () => {
                         longitude: null,
                         location: ""
                       }));
+                      // Clear geotagged photos if user wants to manually enter location
+                      geotaggedPhotos.forEach(photo => {
+                        URL.revokeObjectURL(photo.preview);
+                      });
+                      setGeotaggedPhotos([]);
                     }}
                     className="text-sm text-blue-600 hover:text-blue-700 underline"
                   >
-                    📝 Enter location manually instead
+                    📝 Clear GPS location and enter manually
                   </button>
                 </div>
               )}
