@@ -555,8 +555,7 @@ const GovernmentDashboard = () => {
                     </div>
                     
                     {/* Solve Problem - View Location Button for Government Officials */}
-                    {(issue.status === "in_progress" || issue.status === "under_review") && 
-                     issue.latitude && issue.longitude && (
+                    {issue.latitude && issue.longitude && (
                       <div className="mt-3">
                         <Link
                           to={`/issues/${issue.id}?showMap=true`}
