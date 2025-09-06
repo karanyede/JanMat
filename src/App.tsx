@@ -25,6 +25,7 @@ import VerificationCenter from "./components/VerificationCenter";
 import AdminVerificationPanel from "./components/AdminVerificationPanel";
 import NewsPost from "./components/NewsPost";
 import CameraTest from "./components/CameraTest";
+import AdminPanel from "./pages/AdminPanel";
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -72,6 +73,7 @@ function AppContent() {
               />
               <Route path="analytics" element={<Analytics />} />
               <Route path="camera-test" element={<CameraTest />} />
+              <Route path="admin-panel" element={<AdminPanel />} />
             </Route>
             {/* Story viewer outside layout for full-screen experience */}
             <Route path="story/:issueId" element={<StoryViewer />} />
