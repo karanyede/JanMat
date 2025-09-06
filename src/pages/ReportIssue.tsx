@@ -84,27 +84,6 @@ const ReportIssue = () => {
     { value: "urgent", label: "Urgent", color: "bg-red-100 text-red-600" },
   ];
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData((prev) => ({
-            ...prev,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            location: prev.location || "Current Location",
-          }));
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          alert("Could not get your location. Please enter it manually.");
-        }
-      );
-    } else {
-      alert("Geolocation is not supported by this browser.");
-    }
-  };
-
   const handleGeotagCapture = (imageBlob: Blob, location: { latitude: number; longitude: number; timestamp: string }) => {
     console.log("Photo captured with location:", location);
     console.log("Blob size:", imageBlob.size);
@@ -154,18 +133,13 @@ const ReportIssue = () => {
       return false;
     }
 
-    // Enhanced validation for location - accept either text location, GPS coordinates, or geotagged photos
-    const hasLocationText = formData.location && formData.location.trim().length > 0;
-    const hasGPSCoordinates = formData.latitude && formData.longitude;
+    // Location is now only available through geotagged photos
     const hasGeotaggedPhotos = geotaggedPhotos.length > 0;
     
-    // Determine effective location for validation
-    let effectiveLocation = formData.location;
-    if (hasGPSCoordinates && formData.latitude && formData.longitude) {
-      effectiveLocation = `GPS: ${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}`;
-    } else if (hasGeotaggedPhotos && geotaggedPhotos[0]) {
-      effectiveLocation = `GPS: ${geotaggedPhotos[0].location.latitude.toFixed(6)}, ${geotaggedPhotos[0].location.longitude.toFixed(6)}`;
-    }
+    // Generate location string from geotagged photos
+    const effectiveLocation = hasGeotaggedPhotos ? 
+      `GPS: ${geotaggedPhotos[0].location.latitude.toFixed(6)}, ${geotaggedPhotos[0].location.longitude.toFixed(6)}` : 
+      "";
 
     // Use comprehensive validation
     const validationResult = validateIssue({
@@ -177,22 +151,22 @@ const ReportIssue = () => {
       image_urls: geotaggedPhotos.map((photo) => photo.id), // Just for count validation
     });
 
-    // Custom location validation that considers GPS coordinates and geotagged photos
+    // Custom validation that requires geotagged photos for location
     const newErrors: Record<string, string> = {};
     
     if (!validationResult.isValid) {
       validationResult.errors.forEach((error: ValidationError) => {
-        // Skip location error if we have GPS coordinates or geotagged photos
-        if (error.field === 'location' && (hasGPSCoordinates || hasGeotaggedPhotos)) {
+        // Skip location error if we have geotagged photos (which provide location)
+        if (error.field === 'location' && hasGeotaggedPhotos) {
           return;
         }
         newErrors[error.field] = error.message;
       });
     }
 
-    // Add custom location validation
-    if (!hasLocationText && !hasGPSCoordinates && !hasGeotaggedPhotos) {
-      newErrors.location = "Location is required. Either enter manually, use GPS, or capture geotagged photos.";
+    // Custom location validation - require geotagged photos
+    if (!hasGeotaggedPhotos) {
+      newErrors.location = "Please capture at least one geotagged photo to automatically provide your location.";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -454,81 +428,38 @@ const ReportIssue = () => {
               </div>
             </div>
 
-            {/* Location */}
+            {/* Location - Auto-captured from Photos Only */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Location *
+                Location * (Auto-captured from photos)
               </label>
               
-              {/* Show GPS coordinates if available from photos or manual GPS */}
-              {((formData.latitude && formData.longitude) || geotaggedPhotos.length > 0) && (
+              {/* Show GPS coordinates when photos are captured */}
+              {geotaggedPhotos.length > 0 && (
                 <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm text-green-800 flex items-center space-x-2">
                     <MapPin className="w-4 h-4" />
-                    <span>📍 GPS Location Captured</span>
+                    <span>📍 GPS Location Auto-Captured</span>
                   </p>
-                  {formData.latitude && formData.longitude ? (
-                    <p className="text-xs text-green-600 mt-1 font-mono">
-                      {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
-                    </p>
-                  ) : geotaggedPhotos.length > 0 && (
-                    <p className="text-xs text-green-600 mt-1 font-mono">
-                      {geotaggedPhotos[0].location.latitude.toFixed(6)}, {geotaggedPhotos[0].location.longitude.toFixed(6)}
-                    </p>
-                  )}
-                  {geotaggedPhotos.length > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      ✅ Location automatically captured from geotagged photos
-                    </p>
-                  )}
+                  <p className="text-xs text-green-600 mt-1 font-mono">
+                    {geotaggedPhotos[0].location.latitude.toFixed(6)}, {geotaggedPhotos[0].location.longitude.toFixed(6)}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    ✅ Location automatically captured from geotagged photos
+                  </p>
                 </div>
               )}
               
-              {/* Show manual input only if no GPS coordinates AND no geotagged photos */}
-              {(!formData.latitude || !formData.longitude) && geotaggedPhotos.length === 0 && (
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => updateFormData("location", e.target.value)}
-                    placeholder="Enter location or use GPS from camera"
-                    className={`flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.location ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={getCurrentLocation}
-                    className="px-4 py-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                    title="Get current location"
-                  >
-                    <MapPin className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-              
-              {/* Show option to manually override GPS location */}
-              {((formData.latitude && formData.longitude) || geotaggedPhotos.length > 0) && (
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        latitude: null,
-                        longitude: null,
-                        location: ""
-                      }));
-                      // Clear geotagged photos if user wants to manually enter location
-                      geotaggedPhotos.forEach(photo => {
-                        URL.revokeObjectURL(photo.preview);
-                      });
-                      setGeotaggedPhotos([]);
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-700 underline"
-                  >
-                    📝 Clear GPS location and enter manually
-                  </button>
+              {/* Show instruction when no photos captured */}
+              {geotaggedPhotos.length === 0 && (
+                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 flex items-center space-x-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>📸 Take a photo to automatically capture your location</span>
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Your GPS location will be automatically captured when you take geotagged photos below
+                  </p>
                 </div>
               )}
               
@@ -537,11 +468,14 @@ const ReportIssue = () => {
               )}
             </div>
 
-            {/* Geotag Photo Capture */}
+            {/* Geotagged Photos - Required for Location */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Photos with GPS Location (Optional)
+                Photos with GPS Location *
               </label>
+              <p className="text-sm text-gray-600 mb-3">
+                Take photos to automatically capture your location and provide visual proof of the issue.
+              </p>
               <div className="space-y-4">
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                   <button
@@ -555,19 +489,18 @@ const ReportIssue = () => {
                     <Camera className="w-8 h-8 text-gray-400" />
                     <div>
                       <span className="text-blue-600 hover:text-blue-700 font-medium">
-                        📷 Capture Geotagged Photos
+                        📷 Capture Photos with GPS Location
                       </span>
                     </div>
                     <p className="text-sm text-gray-500">
                       Photos will automatically include GPS location and timestamp
                     </p>
                     <div className="text-xs text-gray-400 space-y-1">
+                      <p className="text-red-600 font-medium">Required: At least 1 photo needed</p>
                       <p>Maximum 4 photos • Location permissions required</p>
-                      {!formData.latitude && !formData.longitude && (
-                        <p className="text-blue-600 font-medium">
-                          💡 Taking geotagged photos will auto-fill your location!
-                        </p>
-                      )}
+                      <p className="text-green-600 font-medium">
+                        � Your location will be automatically captured from photos!
+                      </p>
                     </div>
                     {geotaggedPhotos.length === 0 && (
                       <p className="text-xs text-orange-600 mt-2">
