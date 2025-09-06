@@ -30,37 +30,60 @@ const GeotagCamera: React.FC<GeotagCameraProps> = ({ onCapture, onClose, maxPhot
 
   const getCurrentLocation = (): Promise<{ latitude: number; longitude: number }> => {
     return new Promise((resolve, reject) => {
+      // Check if geolocation is supported
       if (!navigator.geolocation) {
-        reject(new Error("Geolocation is not supported by this browser"));
+        reject(new Error("Geolocation is not supported by this browser. Please use a modern browser."));
         return;
       }
 
+      // Check if we're on HTTPS or localhost (required for geolocation in production)
+      const isSecure = window.location.protocol === 'https:' || 
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+      
+      if (!isSecure && window.location.hostname !== 'janmat.vercel.app') {
+        console.warn("⚠️ Geolocation requires HTTPS in production environments");
+      }
+
+      console.log("🌍 Requesting location permission...");
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          console.log("✅ Location obtained:", {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
         },
         (error) => {
+          console.error("❌ Location error:", error);
           let message = "Unable to get location";
+          let suggestion = "";
+          
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              message = "Location access denied. Please enable location permissions.";
+              message = "Location access denied by user";
+              suggestion = "Please enable location permissions in your browser settings and try again.";
               break;
             case error.POSITION_UNAVAILABLE:
-              message = "Location information unavailable.";
+              message = "Location information unavailable";
+              suggestion = "Please check your device's location settings and internet connection.";
               break;
             case error.TIMEOUT:
-              message = "Location request timed out.";
+              message = "Location request timed out";
+              suggestion = "Please check your internet connection and try again.";
               break;
           }
-          reject(new Error(message));
+          reject(new Error(`${message}. ${suggestion}`));
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000, // 5 minutes
+          timeout: 15000, // Increased timeout for better reliability
+          maximumAge: 600000, // 10 minutes cache
         }
       );
     });
@@ -193,7 +216,7 @@ const GeotagCamera: React.FC<GeotagCameraProps> = ({ onCapture, onClose, maxPhot
 
   const capturePhoto = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || capturedPhotos.length >= maxPhotos) {
-      console.log("Capture blocked:", {
+      console.log("❌ Capture blocked:", {
         hasVideo: !!videoRef.current,
         hasCanvas: !!canvasRef.current,
         photoCount: capturedPhotos.length,
@@ -202,13 +225,33 @@ const GeotagCamera: React.FC<GeotagCameraProps> = ({ onCapture, onClose, maxPhot
       return;
     }
 
-    console.log("Starting photo capture...");
+    console.log("📸 Starting photo capture...");
     setIsCapturing(true);
 
     try {
-      // Get current location
-      const location = await getCurrentLocation();
-      console.log("Location obtained:", location);
+      // Get current location with retry logic
+      let location;
+      try {
+        location = await getCurrentLocation();
+        console.log("✅ Location obtained for photo:", location);
+      } catch (locationError) {
+        console.error("❌ Location failed for photo capture:", locationError);
+        // Show user-friendly error but allow capture without location
+        setLocationError("Location unavailable for this photo");
+        // Use fallback location or continue without location
+        location = { latitude: 0, longitude: 0 };
+        
+        // Ask user if they want to continue without location
+        const continueWithoutLocation = confirm(
+          "Location access failed. Would you like to capture the photo without location data?\n\n" +
+          "Note: Photos without location may have limited functionality in issue reporting."
+        );
+        
+        if (!continueWithoutLocation) {
+          setIsCapturing(false);
+          return;
+        }
+      }
       
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -226,12 +269,12 @@ const GeotagCamera: React.FC<GeotagCameraProps> = ({ onCapture, onClose, maxPhot
       // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      console.log("Canvas dimensions:", canvas.width, "x", canvas.height);
+      console.log("📐 Canvas dimensions:", canvas.width, "x", canvas.height);
 
       // Draw video frame to canvas
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Add location and timestamp overlay
+      // Add location and timestamp overlay (only if location is available)
       const timestamp = new Date().toLocaleString();
       const overlayHeight = 80;
       const overlayWidth = Math.min(450, canvas.width - 20);
@@ -240,14 +283,18 @@ const GeotagCamera: React.FC<GeotagCameraProps> = ({ onCapture, onClose, maxPhot
       context.fillStyle = 'rgba(0, 0, 0, 0.8)';
       context.fillRect(10, canvas.height - overlayHeight - 10, overlayWidth, overlayHeight);
       
-      // Location text
+      // Location text (show "Location unavailable" if no GPS)
       context.fillStyle = 'white';
       context.font = 'bold 16px Arial';
-      context.fillText(
-        `📍 ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`, 
-        20, 
-        canvas.height - overlayHeight + 25
-      );
+      if (location.latitude !== 0 && location.longitude !== 0) {
+        context.fillText(
+          `📍 ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`, 
+          20, 
+          canvas.height - overlayHeight + 25
+        );
+      } else {
+        context.fillText('📍 Location unavailable', 20, canvas.height - overlayHeight + 25);
+      }
       
       // Timestamp text
       context.font = '14px Arial';
