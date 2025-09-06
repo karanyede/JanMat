@@ -218,14 +218,14 @@ const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
           </span>
         </div>
 
-        {/* Debug Info - Remove after testing */}
-        {process.env.NODE_ENV === 'development' && user && (
+        {/* DEBUG - Show GPS status for testing */}
+        {process.env.NODE_ENV === 'development' && (
           <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-            <div><strong>Debug - User Role Info:</strong></div>
-            <div>User ID: {user.id}</div>
-            <div>User Role (state): {userRole || 'null'}</div>
-            <div>User Metadata Role: {user.user_metadata?.role || 'null'}</div>
-            <div>Issue has GPS: {issue.latitude && issue.longitude ? 'YES' : 'NO'}</div>
+            <div><strong>Debug - GPS Status:</strong></div>
+            <div>issue.latitude: {issue.latitude} (type: {typeof issue.latitude})</div>
+            <div>issue.longitude: {issue.longitude} (type: {typeof issue.longitude})</div>
+            <div>userRole: {userRole}</div>
+            <div>user exists: {user ? 'YES' : 'NO'}</div>
             <div>Should show button: {(user && userRole === "government" && issue.latitude && issue.longitude) ? 'YES' : 'NO'}</div>
           </div>
         )}
