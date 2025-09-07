@@ -34,7 +34,6 @@ const IssueDetails = () => {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showMapExpanded, setShowMapExpanded] = useState(false);
 
   const fetchIssueDetails = async () => {
     if (!issueId) return;
@@ -280,11 +279,10 @@ const IssueDetails = () => {
     };
   }, [showDropdown]);
 
-  // Check URL parameter for showMap and automatically show the map
+  // Check URL parameter for showMap and automatically scroll to the map
   useEffect(() => {
     const showMapParam = searchParams.get('showMap');
     if (showMapParam === 'true') {
-      setShowMapExpanded(true);
       // Scroll to the map section after a short delay to ensure it's rendered
       setTimeout(() => {
         const mapElement = document.getElementById('issue-location-map');
@@ -429,7 +427,7 @@ const IssueDetails = () => {
                   <MapPin size={12} />
                   <div className="flex flex-col">
                     <span>{issue.location}</span>
-                    {userProfile?.role === "government" && issue.latitude && issue.longitude && (
+                    {issue.latitude && issue.longitude && (
                       <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1">
                         📍 GPS: {parseFloat(issue.latitude.toString()).toFixed(4)}, {parseFloat(issue.longitude.toString()).toFixed(4)}
                       </span>
@@ -571,32 +569,40 @@ const IssueDetails = () => {
           </div>
         </div>
 
-        {/* Location Map - Only visible to Government Officials */}
-        {userProfile?.role === "government" && issue.latitude && issue.longitude && (
-          <div 
-            id="issue-location-map"
-            className={`bg-white md:border md:rounded-lg md:mt-6 overflow-hidden ${showMapExpanded ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
-          >
-            {showMapExpanded && (
-              <div className="bg-blue-600 text-white p-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <MapPin className="w-5 h-5" />
-                  Problem Location - Ready to Solve
-                </h3>
-                <p className="text-blue-100 text-sm mt-1">
-                  Use the map below to navigate to the issue location and resolve the problem.
-                </p>
-              </div>
-            )}
+        {/* Location Information - ALWAYS VISIBLE FOR ALL POSTS */}
+        <div 
+          id="issue-location-map"
+          className="bg-white md:border md:rounded-lg md:mt-6 overflow-hidden"
+        >
+          <div className="bg-blue-600 text-white p-3">
+            <h3 className="font-semibold flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              Issue Location
+            </h3>
+            <p className="text-blue-100 text-sm mt-1">
+              Location information for this issue
+            </p>
+          </div>
+          
+          {issue.latitude && issue.longitude ? (
             <LocationMap
               latitude={parseFloat(issue.latitude.toString())}
               longitude={parseFloat(issue.longitude.toString())}
               location={issue.location}
-              title={showMapExpanded ? `${issue.title} - Action Required` : issue.title}
+              title={issue.title}
               showDirections={true}
             />
-          </div>
-        )}
+          ) : (
+            <div className="p-4 text-center">
+              <MapPin className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <h3 className="font-medium text-gray-900 mb-1">Location Information</h3>
+              <p className="text-gray-600 text-sm mb-2">{issue.location}</p>
+              <p className="text-xs text-gray-500">
+                This issue was reported from the location above, but exact GPS coordinates are not available.
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Comments Section */}
         <div className="bg-white md:border md:rounded-lg md:mt-6 overflow-hidden">

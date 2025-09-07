@@ -230,18 +230,24 @@ const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
           </div>
         )}
 
-        {/* Solve Problem Button - ONLY for Government Officials */}
-        {user && userRole === "government" && issue.latitude && issue.longitude && (
-          <div className="mt-3 mb-2">
-            <Link
-              to={`/issues/${issue.id}?showMap=true`}
-              className="flex items-center justify-center space-x-2 w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-            >
-              <MapPin size={18} strokeWidth={1.5} />
-              <span>Solve Problem - View Location</span>
-            </Link>
-          </div>
-        )}
+        {/* View Location/Details Button - Available for Everyone on All Posts */}
+        <div className="mt-3 mb-2">
+          <Link
+            to={issue.latitude && issue.longitude 
+              ? `/issues/${issue.id}?showMap=true`
+              : `/issues/${issue.id}`
+            }
+            className="flex items-center justify-center space-x-2 w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            <MapPin size={18} strokeWidth={1.5} />
+            <span>
+              {issue.latitude && issue.longitude 
+                ? "View Location" 
+                : "View Details"
+              }
+            </span>
+          </Link>
+        </div>
 
         {/* View comments link */}
         <Link
