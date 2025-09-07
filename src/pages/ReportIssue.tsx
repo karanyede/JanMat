@@ -234,6 +234,13 @@ const ReportIssue = () => {
         submissionLongitude = geotaggedPhotos[0].location.longitude;
       }
 
+      // Make location mandatory for new issues
+      if (!submissionLatitude || !submissionLongitude) {
+        alert("Location is required for submitting an issue. Please enable location and try again.");
+        setLoading(false);
+        return;
+      }
+
       // Generate location text if we have coordinates
       if (submissionLatitude && submissionLongitude && !submissionLocation.trim()) {
         submissionLocation = `GPS: ${submissionLatitude.toFixed(6)}, ${submissionLongitude.toFixed(6)}`;

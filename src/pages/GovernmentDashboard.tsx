@@ -555,23 +555,18 @@ const GovernmentDashboard = () => {
                     </div>
                     
                     {/* Solve Problem - View Location Button - Available for Everyone */}
-                    <div className="mt-3">
-                      <Link
-                        to={issue.latitude && issue.longitude 
-                          ? `/issues/${issue.id}?showMap=true`
-                          : `/issues/${issue.id}`
-                        }
-                        className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                      >
-                        <MapPin size={16} strokeWidth={1.5} />
-                        <span>
-                          {issue.latitude && issue.longitude 
-                            ? "Solve Problem - View Location" 
-                            : "Solve Problem - View Details"
-                          }
-                        </span>
-                      </Link>
-                    </div>
+                    {/* Solve Problem - View Location Button - ONLY for Government Officials and only if location is available */}
+                    {userProfile?.role === "government" && issue.latitude && issue.longitude && (
+                      <div className="mt-3">
+                        <Link
+                          to={`/issues/${issue.id}?showMap=true`}
+                          className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <MapPin size={16} strokeWidth={1.5} />
+                          <span>Solve Problem - View Location</span>
+                        </Link>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-shrink-0 md:ml-4">
                     <label className="block text-xs font-medium text-gray-700 mb-1">
