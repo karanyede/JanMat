@@ -554,7 +554,6 @@ const GovernmentDashboard = () => {
                       <span>👍 {issue.upvotes}</span>
                     </div>
                     
-                    {/* Solve Problem - View Location Button - Available for Everyone */}
                     {/* Solve Problem - View Location Button - ONLY for Government Officials and only if location is available */}
                     {userProfile?.role === "government" && issue.latitude && issue.longitude && (
                       <div className="mt-3">

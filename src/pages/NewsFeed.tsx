@@ -1,186 +1,51 @@
 import { useState, useEffect } from "react";
-import { News } from "../types";
+import { News, NewsCategory } from "../types";
 import { supabase } from "../lib/supabase";
+import { newsAPI, ExternalNewsArticle } from "../lib/newsAPI";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { Calendar, ExternalLink, Eye, Share, RefreshCw } from "lucide-react";
+import NewsDetailModal from "../components/NewsDetailModal";
+import { 
+  ExternalLink, 
+  Eye, 
+  Share, 
+  RefreshCw, 
+  Heart,
+  MessageCircle,
+  Bookmark,
+  Globe,
+  Flag,
+  MapPin,
+  Building,
+  Filter,
+  Grid,
+  List,
+  TrendingUp,
+  Clock,
+  User,
+  Plus,
+  Newspaper,
+  Wifi,
+  WifiOff
+} from "lucide-react";
 import { formatRelativeTime } from "../lib/utils";
-
-// Dummy news data for testing (now unused as we fetch real data)
-/*
-const dummyNews: News[] = [
-  {
-    id: "1",
-    title: "New Metro Line to Connect Major IT Hubs",
-    content:
-      "The state government announced the launch of a new metro line connecting major IT hubs in the city. This initiative aims to reduce traffic congestion and provide better connectivity for daily commuters. The project is expected to be completed within 24 months with an estimated budget of ₹5,000 crores.",
-    category: "development",
-    image_url:
-      "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800",
-    author_id: "gov-1",
-    published: true,
-    priority: "high",
-    location: "Mumbai, Maharashtra",
-    likes: 245,
-    liked_by: [],
-    views: 1245,
-    published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    author: {
-      id: "gov-1",
-      email: "mumbai@metro.gov.in",
-      full_name: "Mumbai Metro Rail Corporation",
-      role: "government",
-      avatar_url:
-        "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=100",
-      bio: "Official account of Mumbai Metro Rail Corporation",
-      is_public: true,
-      followers: [],
-      following: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-  {
-    id: "2",
-    title: "Digital Health Cards for All Citizens",
-    content:
-      "The health department launches a digital health card initiative providing every citizen with a unique health ID. This will streamline medical records, enable faster emergency response, and improve healthcare delivery across all government hospitals and clinics in the state.",
-    category: "services",
-    image_url:
-      "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800",
-    author_id: "gov-2",
-    published: true,
-    priority: "medium",
-    location: "Delhi, India",
-    likes: 189,
-    liked_by: [],
-    views: 892,
-    published_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    author: {
-      id: "gov-2",
-      email: "health@delhi.gov.in",
-      full_name: "Department of Health & Family Welfare",
-      role: "government",
-      avatar_url:
-        "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=100",
-      bio: "Official health department communications",
-      is_public: true,
-      followers: [],
-      following: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-  {
-    id: "3",
-    title: "₹200 Crore Sanitation Drive Approved",
-    content:
-      "The municipal corporation approved a comprehensive sanitation drive worth ₹200 crores to improve waste management and cleanliness across the city. The initiative includes installation of smart dustbins, waste segregation plants, and public toilet facilities in high-traffic areas.",
-    category: "budget",
-    image_url:
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800",
-    author_id: "gov-3",
-    published: true,
-    priority: "medium",
-    location: "Pune, Maharashtra",
-    likes: 134,
-    liked_by: [],
-    views: 567,
-    published_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    author: {
-      id: "gov-3",
-      email: "info@pmc.gov.in",
-      full_name: "Pune Municipal Corporation",
-      role: "government",
-      avatar_url:
-        "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=100",
-      bio: "Official PMC communications",
-      is_public: true,
-      followers: [],
-      following: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-  {
-    id: "4",
-    title: "Online Property Tax Payment Portal Live",
-    content:
-      "Citizens can now pay property taxes online through the new digital portal. The system supports multiple payment methods and provides instant receipts. This paperless initiative aims to reduce queues at municipal offices and improve citizen convenience.",
-    category: "services",
-    image_url:
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800",
-    author_id: "gov-4",
-    published: true,
-    priority: "low",
-    location: "Bangalore, Karnataka",
-    likes: 98,
-    liked_by: [],
-    views: 1034,
-    published_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    author: {
-      id: "gov-4",
-      email: "info@bbmp.gov.in",
-      full_name: "Bruhat Bengaluru Mahanagara Palike",
-      role: "government",
-      avatar_url:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100",
-      bio: "Official BBMP communications",
-      is_public: true,
-      followers: [],
-      following: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-  {
-    id: "5",
-    title: "Emergency Flood Relief Measures Activated",
-    content:
-      "Following heavy rainfall warnings, the state government has activated emergency flood relief measures. Relief camps are being set up in vulnerable areas, and the disaster management team is on standby. Citizens are advised to stay updated and follow safety guidelines.",
-    category: "emergency",
-    image_url:
-      "https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=800",
-    author_id: "gov-5",
-    published: true,
-    priority: "high",
-    location: "Kerala, India",
-    likes: 445,
-    liked_by: [],
-    views: 2156,
-    published_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), // 1 hour ago
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    author: {
-      id: "gov-5",
-      email: "emergency@kerala.gov.in",
-      full_name: "Kerala State Disaster Management Authority",
-      role: "government",
-      avatar_url:
-        "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=100",
-      bio: "Emergency management and disaster response",
-      is_public: true,
-      followers: [],
-      following: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-];
-*/
+import { useAuth } from "../hooks/useAuth";
 
 const NewsFeed = () => {
+  const { user } = useAuth();
   const [news, setNews] = useState<News[]>([]);
+  const [externalNews, setExternalNews] = useState<ExternalNewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<NewsCategory | "all" | "external">("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [likedNews, setLikedNews] = useState<Set<string>>(new Set());
+  const [apiConnected, setApiConnected] = useState(false);
+  
+  // Modal state
+  const [selectedArticle, setSelectedArticle] = useState<ExternalNewsArticle | News | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExternalArticle, setIsExternalArticle] = useState(false);
 
   const fetchNews = async (isRefresh = false) => {
     try {
@@ -191,257 +56,646 @@ const NewsFeed = () => {
         setLoading(true);
       }
 
-      // Fetch real news from database (from government and journalist users only)
-      // Temporarily show all news until journalist role is added to database
+      // Fetch local JanMat news from Supabase
       const { data: newsData, error: newsError } = await supabase
         .from("news")
-        .select(
-          `
+        .select(`
           *,
-          users!author_id (
+          author:users(
             id,
             full_name,
+            role,
             avatar_url,
-            role
+            department
           )
-        `
-        )
+        `)
         .eq("published", true)
-        // Temporarily comment out role filter until migration is run
-        .in("users.role", ["government", "journalist"]) // Only government and journalist news
-        .order("published_at", { ascending: false })
-        .limit(20);
+        .order("created_at", { ascending: false });
 
       if (newsError) {
-        console.error("Error fetching news:", newsError);
-        setError("Failed to load news. Please try again.");
-        return;
+        throw newsError;
       }
 
       setNews(newsData || []);
-      setLoading(false);
-      setRefreshing(false);
+
+      // Fetch real-time external news
+      try {
+        setApiConnected(newsAPI.isConfigured());
+        
+        if (newsAPI.isConfigured()) {
+          // Fetch different types of news
+          const [
+            indiaHeadlines,
+            governmentNews,
+            emergencyNews
+          ] = await Promise.allSettled([
+            newsAPI.getIndiaNews(),
+            newsAPI.getGovernmentNews(),
+            newsAPI.getEmergencyNews()
+          ]);
+
+          // Combine all external news
+          const allExternalNews: ExternalNewsArticle[] = [];
+          
+          if (indiaHeadlines.status === 'fulfilled') {
+            allExternalNews.push(...indiaHeadlines.value);
+          }
+          if (governmentNews.status === 'fulfilled') {
+            allExternalNews.push(...governmentNews.value);
+          }
+          if (emergencyNews.status === 'fulfilled') {
+            allExternalNews.push(...emergencyNews.value);
+          }
+
+          // Remove duplicates and sort by date
+          const uniqueNews = allExternalNews
+            .filter((article, index, self) => 
+              index === self.findIndex(a => a.id === article.id || a.title === article.title)
+            )
+            .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+            .slice(0, 20); // Limit to 20 articles
+
+          setExternalNews(uniqueNews);
+        } else {
+          // Use demo data when API is not configured
+          setExternalNews(newsAPI.getDemoNews());
+        }
+      } catch (apiError) {
+        console.warn('External news API failed, using demo data:', apiError);
+        setExternalNews(newsAPI.getDemoNews());
+        setApiConnected(false);
+      }
+
+      // Set liked news from user data
+      if (user && newsData) {
+        const userLikedNews = newsData
+          .filter(n => n.liked_by?.includes(user.id))
+          .map(n => n.id);
+        setLikedNews(new Set(userLikedNews));
+      }
+
     } catch (err) {
       console.error("Error fetching news:", err);
-      setError("Failed to load news. Please check your connection.");
+      setError(err instanceof Error ? err.message : "Failed to fetch news");
+    } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchNews();
-  }, []);
+  }, [user]);
+
+  const openNewsModal = (article: ExternalNewsArticle | News, isExternal: boolean = false) => {
+    setSelectedArticle(article);
+    setIsExternalArticle(isExternal);
+    setIsModalOpen(true);
+  };
+
+  const closeNewsModal = () => {
+    setSelectedArticle(null);
+    setIsModalOpen(false);
+    setIsExternalArticle(false);
+  };
+
+  const handleLike = async (newsId: string) => {
+    if (!user) return;
+
+    try {
+      const newsItem = news.find(n => n.id === newsId);
+      if (!newsItem) return;
+
+      const isLiked = likedNews.has(newsId);
+      const newLikedBy = isLiked 
+        ? newsItem.liked_by.filter(id => id !== user.id)
+        : [...newsItem.liked_by, user.id];
+
+      const { error } = await supabase
+        .from("news")
+        .update({
+          liked_by: newLikedBy,
+          likes: newLikedBy.length
+        })
+        .eq("id", newsId);
+
+      if (error) throw error;
+
+      // Update local state
+      setNews(prev => prev.map(n => 
+        n.id === newsId 
+          ? { ...n, liked_by: newLikedBy, likes: newLikedBy.length }
+          : n
+      ));
+
+      // Update liked news set
+      const newLikedNews = new Set(likedNews);
+      if (isLiked) {
+        newLikedNews.delete(newsId);
+      } else {
+        newLikedNews.add(newsId);
+      }
+      setLikedNews(newLikedNews);
+
+    } catch (err) {
+      console.error("Error updating like:", err);
+    }
+  };
+
+  const getCategoryIcon = (category: NewsCategory | "all" | "external") => {
+    switch (category) {
+      case "all": return <Grid className="w-4 h-4" />;
+      case "external": return <Wifi className="w-4 h-4" />;
+      case "announcement": return <Globe className="w-4 h-4" />;
+      case "policy": return <Flag className="w-4 h-4" />;
+      case "development": return <Building className="w-4 h-4" />;
+      case "emergency": return <TrendingUp className="w-4 h-4" />;
+      default: return <MapPin className="w-4 h-4" />;
+    }
+  };
+
+  const getCategoryColor = (category: NewsCategory) => {
+    switch (category) {
+      case "announcement": return "bg-blue-500";
+      case "policy": return "bg-green-500";
+      case "development": return "bg-purple-500";
+      case "emergency": return "bg-red-500";
+      case "event": return "bg-yellow-500";
+      case "budget": return "bg-indigo-500";
+      case "services": return "bg-pink-500";
+      default: return "bg-gray-500";
+    }
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return <span className="px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-full">High Priority</span>;
+      case "medium":
+        return <span className="px-2 py-1 text-xs font-semibold text-white bg-yellow-500 rounded-full">Medium</span>;
+      case "low":
+        return <span className="px-2 py-1 text-xs font-semibold text-white bg-green-500 rounded-full">Low</span>;
+      default:
+        return null;
+    }
+  };
+
+  const filteredNews = selectedCategory === "all" 
+    ? news 
+    : selectedCategory === "external"
+      ? [] // External news will be handled separately
+      : news.filter(item => item.category === selectedCategory);
+
+  const categories: Array<{key: NewsCategory | "all" | "external", label: string, count: number}> = [
+    { key: "all", label: "JanMat News", count: news.length },
+    { key: "external", label: `Live News ${apiConnected ? '🟢' : '🔴'}`, count: externalNews.length },
+    { key: "announcement", label: "Announcements", count: news.filter(n => n.category === "announcement").length },
+    { key: "policy", label: "Policies", count: news.filter(n => n.category === "policy").length },
+    { key: "development", label: "Development", count: news.filter(n => n.category === "development").length },
+    { key: "emergency", label: "Emergency", count: news.filter(n => n.category === "emergency").length },
+    { key: "event", label: "Events", count: news.filter(n => n.category === "event").length },
+  ];
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
   return (
-    <div className="w-full max-w-md mx-auto bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-10 shadow-sm">
-        <div className="px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">News</h1>
-          <button
-            onClick={() => fetchNews(true)}
-            disabled={refreshing}
-            className={`p-2 rounded-full transition-colors ${
-              refreshing
-                ? "text-gray-400 cursor-not-allowed"
-                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            }`}
-            title="Refresh news"
-          >
-            <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
-          </button>
-        </div>
-        <div className="px-4 pb-2">
-          <p className="text-sm text-gray-600">
-            Government updates in 60 words
-          </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-3">
+              <Globe className="w-10 h-10" />
+              JanMat News Hub
+            </h1>
+            <p className="text-xl text-blue-100 mb-6">
+              Stay informed with the latest updates from your community and live news
+              {apiConnected && <span className="inline-flex items-center gap-1 ml-2 text-green-200">
+                <Wifi className="w-4 h-4" />
+                Live
+              </span>}
+            </p>
+            <div className="flex items-center justify-center gap-8 text-blue-100">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{news.length}+</div>
+                <div className="text-sm">JanMat News</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">{externalNews.length}+</div>
+                <div className="text-sm">Live News</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-white">Real-time</div>
+                <div className="text-sm">Updates</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700 text-sm">{error}</p>
-          <button
-            onClick={() => fetchNews()}
-            className="mt-2 text-red-600 text-sm underline hover:text-red-800"
-          >
-            Try again
-          </button>
-        </div>
-      )}
-
-      {/* News Feed - Inshorts Style */}
-      <div className="divide-y divide-gray-200">
-        {news.length === 0 && !error ? (
-          <div className="text-center py-16 px-4">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-              <Calendar className="w-8 h-8 text-gray-400" />
+      {/* Category Filters */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Filter className="w-5 h-5" />
+              Filter by Category
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-lg transition-colors ${
+                  viewMode === "grid" 
+                    ? "bg-blue-100 text-blue-600" 
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Grid className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded-lg transition-colors ${
+                  viewMode === "list" 
+                    ? "bg-blue-100 text-blue-600" 
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <List className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => fetchNews(true)}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No news yet
-            </h3>
-            <p className="text-gray-500">
-              Official announcements will appear here when published
-            </p>
           </div>
-        ) : (
-          news.map((article, index) => (
-            <div key={article.id} className="bg-white">
-              {/* Article Image */}
-              {article.image_url && (
-                <div className="aspect-video bg-gray-200">
-                  <img
-                    src={article.image_url}
-                    alt={article.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
+          
+          <div className="flex flex-wrap gap-2">
+            {categories.map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setSelectedCategory(key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all ${
+                  selectedCategory === key
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {getCategoryIcon(key)}
+                <span>{label}</span>
+                <span className={`px-2 py-1 text-xs rounded-full ${
+                  selectedCategory === key
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 text-gray-600"
+                }`}>
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
-              {/* Article Content */}
-              <div className="p-4">
-                {/* Author Info */}
-                <div className="flex items-center space-x-2 mb-3">
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-medium text-xs">
-                      {article.author?.full_name?.charAt(0).toUpperCase() ||
-                        "G"}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 text-sm truncate">
-                      {article.author?.full_name || "Government Official"}
-                    </p>
-                    <div className="flex items-center text-xs text-gray-500">
-                      <span>
-                        {formatRelativeTime(
-                          article.published_at || article.created_at
-                        )}
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {selectedCategory === "external" ? (
+          // External News Rendering
+          externalNews.length === 0 ? (
+            <div className="text-center py-12">
+              {apiConnected ? (
+                <>
+                  <Wifi className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading live news...</h3>
+                  <p className="text-gray-600">Fetching the latest news from across India</p>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">API Not Configured</h3>
+                  <p className="text-gray-600">Add your GNews API key to get real-time news</p>
+                  <p className="text-sm text-blue-600 mt-2">
+                    Get free API key at{" "}
+                    <a href="https://gnews.io/register" target="_blank" rel="noopener noreferrer" className="underline">
+                      gnews.io
+                    </a>
+                  </p>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className={
+              viewMode === "grid" 
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                : "space-y-6"
+            }>
+              {externalNews.map((article) => (
+                <article
+                  key={article.id}
+                  className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer ${
+                    viewMode === "list" ? "flex" : ""
+                  }`}
+                  onClick={() => openNewsModal(article, true)}
+                >
+                  {/* External News Image */}
+                  <div className={`relative overflow-hidden ${
+                    viewMode === "list" ? "w-48 flex-shrink-0" : "h-48"
+                  }`}>
+                    {article.image ? (
+                      <img
+                        src={article.image}
+                        alt={article.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                        <Newspaper className="w-12 h-12 text-white opacity-50" />
+                      </div>
+                    )}
+                    
+                    {/* Live News Badge */}
+                    <div className="absolute top-3 left-3">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold text-white bg-red-500 animate-pulse">
+                        <Wifi className="w-3 h-3" />
+                        LIVE
                       </span>
-                      {article.location && (
-                        <>
-                          <span className="mx-1">•</span>
-                          <span className="truncate">{article.location}</span>
-                        </>
-                      )}
+                    </div>
+
+                    {/* Source Country Badge */}
+                    <div className="absolute top-3 right-3">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500 text-white text-xs font-semibold rounded-full">
+                        {article.source.country.toUpperCase()}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        article.category === "emergency"
-                          ? "bg-red-100 text-red-800"
-                          : article.category === "announcement"
-                            ? "bg-blue-100 text-blue-800"
-                            : article.category === "development"
-                              ? "bg-green-100 text-green-800"
-                              : article.category === "budget"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {article.category}
-                    </span>
+
+                  {/* External News Content */}
+                  <div className="p-6 flex-1">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                        {article.title}
+                      </h3>
+                    </div>
+
+                    <p className="text-gray-600 mb-4 line-clamp-3">
+                      {article.description}
+                    </p>
+
+                    {/* External News Meta */}
+                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                      <div className="flex items-center gap-1">
+                        <Globe className="w-4 h-4" />
+                        <span>{article.source.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        <span>{formatRelativeTime(article.publishedAt)}</span>
+                      </div>
+                    </div>
+
+                    {/* External News Actions */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openNewsModal(article, true);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Read Full
+                      </button>
+                      
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Original
+                      </a>
+                      
+                      <button 
+                        onClick={() => {
+                          if (navigator.share) {
+                            navigator.share({
+                              title: article.title,
+                              text: article.description,
+                              url: article.url,
+                            });
+                          } else {
+                            navigator.clipboard.writeText(article.url);
+                            alert("Link copied to clipboard!");
+                          }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        <Share className="w-4 h-4" />
+                        Share
+                      </button>
+                    </div>
                   </div>
-                </div>
-
-                {/* Title */}
-                <h2 className="font-bold text-gray-900 text-lg leading-tight mb-3">
-                  {article.title}
-                </h2>
-
-                {/* Content - Limited to ~60 words like Inshorts */}
-                <p className="text-gray-700 text-sm leading-relaxed mb-4">
-                  {article.content.split(" ").slice(0, 60).join(" ")}
-                  {article.content.split(" ").length > 60 && "..."}
-                </p>
-
-                {/* Engagement Stats */}
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                  <div className="flex items-center space-x-4">
-                    <span className="flex items-center space-x-1">
-                      <Eye size={14} />
-                      <span>{(article.views || 0).toLocaleString()}</span>
-                    </span>
-                    <span className="flex items-center space-x-1">
-                      <span>❤️</span>
-                      <span>{article.likes || 0}</span>
-                    </span>
-                  </div>
-                  <span
-                    className={`px-2 py-1 rounded-full font-medium ${
-                      article.priority === "high"
-                        ? "bg-red-100 text-red-700"
-                        : article.priority === "medium"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {article.priority} priority
-                  </span>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                  <button
-                    className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
-                    onClick={() => {
-                      if (navigator.share) {
-                        navigator.share({
-                          title: article.title,
-                          text: article.content,
-                          url: `${window.location.origin}/news/${article.id}`,
-                        });
-                      } else {
-                        navigator.clipboard.writeText(
-                          `${window.location.origin}/news/${article.id}`
-                        );
-                        alert("Link copied to clipboard!");
-                      }
-                    }}
-                  >
-                    <Share size={16} />
-                    <span className="text-sm font-medium">Share</span>
-                  </button>
-
-                  {article.external_url && (
-                    <a
-                      href={article.external_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors"
-                    >
-                      <span className="text-sm font-medium">Read Full</span>
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
-
-                  <button className="text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors">
-                    Save
-                  </button>
-                </div>
-              </div>
-
-              {/* Swipe indicator for next story */}
-              {index < news.length - 1 && (
-                <div className="bg-gray-100 py-2 px-4 text-center">
-                  <span className="text-xs text-gray-500">
-                    ↓ Swipe for next story ↓
-                  </span>
-                </div>
-              )}
+                </article>
+              ))}
             </div>
-          ))
+          )
+        ) : (
+          // Internal JanMat News Rendering
+          filteredNews.length === 0 ? (
+            <div className="text-center py-12">
+              <Globe className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No news found</h3>
+              <p className="text-gray-600">
+                {selectedCategory === "all" 
+                  ? "No news articles are available at the moment." 
+                  : `No news found for the ${selectedCategory} category.`}
+              </p>
+            </div>
+          ) : (
+            <div className={
+              viewMode === "grid" 
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                : "space-y-6"
+            }>
+              {filteredNews.map((item) => (
+                <article
+                  key={item.id}
+                  className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${
+                    viewMode === "list" ? "flex" : ""
+                  }`}
+                >
+                  {/* Image Section */}
+                  <div className={`relative overflow-hidden ${
+                    viewMode === "list" ? "w-48 flex-shrink-0" : "h-48"
+                  }`}>
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                        <Globe className="w-12 h-12 text-white opacity-50" />
+                      </div>
+                    )}
+                    
+                    {/* Category Badge */}
+                    <div className="absolute top-3 left-3">
+                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold text-white ${getCategoryColor(item.category)}`}>
+                        {getCategoryIcon(item.category)}
+                        {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                      </span>
+                    </div>
+
+                    {/* Priority Badge */}
+                    {item.priority === "high" && (
+                      <div className="absolute top-3 right-3">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full animate-pulse">
+                          <TrendingUp className="w-3 h-3" />
+                          Urgent
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content Section */}
+                  <div className="p-6 flex-1">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                        {item.title}
+                      </h3>
+                      {getPriorityBadge(item.priority)}
+                    </div>
+
+                    <p className="text-gray-600 mb-4 line-clamp-3">
+                      {item.content}
+                    </p>
+
+                    {/* Meta Information */}
+                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                      <div className="flex items-center gap-1">
+                        <User className="w-4 h-4" />
+                        <span>{item.author?.full_name || "Government"}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        <span>{formatRelativeTime(item.created_at)}</span>
+                      </div>
+                      {item.location && (
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          <span>{item.location}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                      <div className="flex items-center gap-1">
+                        <Eye className="w-4 h-4" />
+                        <span>{item.views || 0} views</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Heart className="w-4 h-4" />
+                        <span>{item.likes} likes</span>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleLike(item.id)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                          likedNews.has(item.id)
+                            ? "bg-red-100 text-red-600 hover:bg-red-200"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <Heart className={`w-4 h-4 ${likedNews.has(item.id) ? "fill-current" : ""}`} />
+                        {item.likes}
+                      </button>
+                      
+                      <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
+                        <MessageCircle className="w-4 h-4" />
+                        Comment
+                      </button>
+                      
+                      <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
+                        <Share className="w-4 h-4" />
+                        Share
+                      </button>
+                      
+                      <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors ml-auto">
+                        <Bookmark className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* External Link */}
+                    {item.external_url && (
+                      <a
+                        href={item.external_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 mt-4 text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Read full article
+                      </a>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Load More Button */}
+        {(selectedCategory === "external" ? externalNews.length > 0 : filteredNews.length > 0) && (
+          <div className="text-center mt-12">
+            <button className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+              <Plus className="w-5 h-5" />
+              Load More Articles
+            </button>
+          </div>
         )}
       </div>
 
-      {/* Bottom spacing for mobile navigation */}
-      <div className="h-20 md:h-8"></div>
+      {/* Bottom CTA Section */}
+      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold mb-4">Stay Connected with JanMat</h2>
+          <p className="text-xl text-gray-300 mb-8">
+            Join thousands of citizens making a difference in their communities
+          </p>
+          <div className="flex items-center justify-center gap-6">
+            <div className="text-center">
+              <TrendingUp className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+              <span className="block font-semibold">Track Progress</span>
+            </div>
+            <div className="text-center">
+              <Globe className="w-8 h-8 text-green-400 mx-auto mb-2" />
+              <span className="block font-semibold">Stay Informed</span>
+            </div>
+            <div className="text-center">
+              <Heart className="w-8 h-8 text-red-400 mx-auto mb-2" />
+              <span className="block font-semibold">Make Impact</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
