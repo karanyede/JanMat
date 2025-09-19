@@ -696,6 +696,16 @@ const NewsFeed = () => {
           </div>
         </div>
       </div>
+
+      {/* News Detail Modal */}
+      {isModalOpen && selectedArticle && (
+        <NewsDetailModal
+          article={selectedArticle}
+          isOpen={isModalOpen}
+          isExternal={isExternalArticle}
+          onClose={closeNewsModal}
+        />
+      )}
     </div>
   );
 };
