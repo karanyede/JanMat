@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 
@@ -7,7 +7,13 @@ export interface Notification {
   user_id: string;
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "error";
+  type:
+    | "issue_update"
+    | "new_poll"
+    | "news"
+    | "follow"
+    | "story_view"
+    | "comment";
   read: boolean;
   issue_id?: string;
   created_at: string;
@@ -19,19 +25,7 @@ export const useNotifications = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      const unsubscribe = subscribeToNotifications();
-      return unsubscribe; // Cleanup subscription
-    } else {
-      // Clear notifications when user logs out
-      setNotifications([]);
-      setUnreadCount(0);
-    }
-  }, [user?.id]); // Only depend on user.id to prevent unnecessary re-renders
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     // Client-side validation: ensure user is authenticated
     if (!user) {
       setNotifications([]);
@@ -45,9 +39,7 @@ export const useNotifications = () => {
       // For now, skip database calls and use dummy data until notifications table is properly configured
       let notificationsData: any[] = [];
 
-      // TODO: Enable database notifications when backend is ready
-      // Database calls commented out to prevent network errors
-      /*
+      // Try to fetch real notifications from database
       try {
         const { data, error } = await supabase
           .from("notifications")
@@ -57,19 +49,21 @@ export const useNotifications = () => {
           .limit(50);
 
         if (error) {
-          console.warn("Notifications table not available, using dummy data:", error.message);
+          console.warn(
+            "Notifications table error, falling back to dummy data:",
+            error.message
+          );
           notificationsData = [];
         } else {
           notificationsData = data || [];
         }
       } catch (dbError) {
-        console.warn("Database error for notifications, using dummy data:", dbError);
+        console.warn(
+          "Database error for notifications, using dummy data:",
+          dbError
+        );
         notificationsData = [];
       }
-      */
-
-      // Always use dummy data for now (until notifications table is properly set up)
-      notificationsData = [];
 
       if (notificationsData.length === 0) {
         // Add dummy notifications for testing
@@ -80,7 +74,7 @@ export const useNotifications = () => {
             title: "Issue Update",
             message:
               "Your reported pothole issue has been assigned to the road maintenance department.",
-            type: "info" as const,
+            type: "issue_update" as const,
             read: false,
             issue_id: "1",
             created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
@@ -91,7 +85,7 @@ export const useNotifications = () => {
             title: "New Poll",
             message:
               "A new poll about community park renovation is now live. Cast your vote!",
-            type: "success" as const,
+            type: "new_poll" as const,
             read: false,
             created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
           },
@@ -101,7 +95,7 @@ export const useNotifications = () => {
             title: "Issue Resolved",
             message:
               "Great news! The streetlight issue you reported has been resolved.",
-            type: "success" as const,
+            type: "issue_update" as const,
             read: true,
             issue_id: "2",
             created_at: new Date(
@@ -114,7 +108,7 @@ export const useNotifications = () => {
             title: "Maintenance Alert",
             message:
               "Scheduled water supply maintenance in your area tomorrow from 10 AM to 2 PM.",
-            type: "warning" as const,
+            type: "news" as const,
             read: true,
             created_at: new Date(
               Date.now() - 2 * 24 * 60 * 60 * 1000
@@ -126,7 +120,7 @@ export const useNotifications = () => {
             title: "New Follower",
             message:
               "Rajesh Kumar started following you. Check out their profile!",
-            type: "info" as const,
+            type: "follow" as const,
             read: true,
             created_at: new Date(
               Date.now() - 3 * 24 * 60 * 60 * 1000
@@ -147,7 +141,7 @@ export const useNotifications = () => {
           title: "Welcome to JanMat!",
           message:
             "Notifications are currently in demo mode. Real notifications will appear when the backend is fully configured.",
-          type: "info" as const,
+          type: "news" as const,
           read: false,
           created_at: new Date().toISOString(),
         },
@@ -157,61 +151,78 @@ export const useNotifications = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]); // Only depend on user object
 
-  const subscribeToNotifications = () => {
-    if (!user) return () => {}; // Return empty cleanup function
+  // Temporarily disable real-time subscriptions to prevent infinite loops
+  // const subscribeToNotifications = useCallback(() => {
+  //   if (!user) return () => {}; // Return empty cleanup function
 
-    const subscription = supabase
-      .channel(`notifications-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const newNotification = payload.new as Notification;
-          setNotifications((prev) => [newNotification, ...prev]);
-          setUnreadCount((prev) => prev + 1);
+  //   const subscription = supabase
+  //     .channel(`notifications-${user.id}`)
+  //     .on(
+  //       "postgres_changes",
+  //       {
+  //         event: "INSERT",
+  //         schema: "public",
+  //         table: "notifications",
+  //         filter: `user_id=eq.${user.id}`,
+  //       },
+  //       (payload) => {
+  //         const newNotification = payload.new as Notification;
+  //         setNotifications((prev) => [newNotification, ...prev]);
+  //         setUnreadCount((prev) => prev + 1);
 
-          // Show browser notification if permission granted
-          if (Notification.permission === "granted") {
-            new Notification(newNotification.title, {
-              body: newNotification.message,
-              icon: "/favicon.ico",
-            });
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const updatedNotification = payload.new as Notification;
-          setNotifications((prev) =>
-            prev.map((n) =>
-              n.id === updatedNotification.id ? updatedNotification : n
-            )
-          );
+  //         // Show browser notification if permission granted
+  //         if (Notification.permission === "granted") {
+  //           new Notification(newNotification.title, {
+  //             body: newNotification.message,
+  //             icon: "/favicon.ico",
+  //           });
+  //         }
+  //       }
+  //     )
+  //     .on(
+  //       "postgres_changes",
+  //       {
+  //         event: "UPDATE",
+  //         schema: "public",
+  //         table: "notifications",
+  //         filter: `user_id=eq.${user.id}`,
+  //       },
+  //       (payload) => {
+  //         const updatedNotification = payload.new as Notification;
+  //         // Update unread count based on current state
+  //         setNotifications((currentNotifications) => {
+  //           const updated = currentNotifications.map((n) =>
+  //             n.id === updatedNotification.id ? updatedNotification : n
+  //           );
+  //           setUnreadCount(updated.filter((n) => !n.read).length);
+  //           return updated;
+  //         });
+  //       }
+  //     )
+  //     .subscribe();
 
-          // Update unread count - avoid infinite loop by not calling fetchNotifications
-          setUnreadCount(() => notifications.filter((n) => !n.read).length);
-        }
-      )
-      .subscribe();
+  //   return () => {
+  //     subscription.unsubscribe();
+  //   };
+  // }, [user]); // Remove notifications dependency to prevent infinite loop
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  };
+  // Initialize notifications when user changes
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // Temporarily disable real-time subscriptions to prevent infinite loops
+      // const unsubscribe = subscribeToNotifications();
+      // return () => {
+      //   unsubscribe(); // Cleanup subscription
+      // };
+    } else {
+      // Clear notifications when user logs out
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, [user?.id, fetchNotifications]); // Remove subscribeToNotifications to prevent loops
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -301,13 +312,13 @@ export const useNotifications = () => {
     }
   };
 
-  const requestNotificationPermission = async () => {
+  const requestNotificationPermission = useCallback(async () => {
     if ("Notification" in window && Notification.permission === "default") {
       const permission = await Notification.requestPermission();
       return permission === "granted";
     }
     return Notification.permission === "granted";
-  };
+  }, []);
 
   return {
     notifications,
@@ -326,7 +337,7 @@ export const createNotification = async (
   userId: string,
   title: string,
   message: string,
-  type: Notification["type"] = "info",
+  type: Notification["type"] = "news",
   issueId?: string
 ) => {
   try {
@@ -365,7 +376,7 @@ export const notifyGovernmentUsersOfNewIssue = async (
         user_id: user.id,
         title: "New Issue Reported",
         message: `A new ${category} issue has been reported: ${issueTitle}`,
-        type: "info" as const,
+        type: "issue_update" as const,
         issue_id: issueId,
         read: false,
       }));
@@ -403,7 +414,7 @@ export const notifyIssueStatusChange = async (
       citizenId,
       "Issue Status Update",
       `Your issue "${issueTitle}" ${message}.`,
-      newStatus === "resolved" ? "success" : "info",
+      newStatus === "resolved" ? "issue_update" : "issue_update",
       issueId
     );
   } catch (error) {

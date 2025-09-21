@@ -36,14 +36,20 @@ const NotificationSystem = ({ isOpen, onClose }: NotificationSystemProps) => {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case "success":
+      case "issue_update":
+        return <AlertCircle className="w-5 h-5 text-blue-500" />;
+      case "new_poll":
+        return <MessageSquare className="w-5 h-5 text-purple-500" />;
+      case "news":
         return <Bell className="w-5 h-5 text-green-500" />;
-      case "warning":
-        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
-      case "error":
-        return <AlertCircle className="w-5 h-5 text-red-500" />;
+      case "follow":
+        return <Bell className="w-5 h-5 text-blue-500" />;
+      case "story_view":
+        return <MessageSquare className="w-5 h-5 text-indigo-500" />;
+      case "comment":
+        return <MessageSquare className="w-5 h-5 text-gray-500" />;
       default:
-        return <MessageSquare className="w-5 h-5 text-blue-500" />;
+        return <Bell className="w-5 h-5 text-gray-500" />;
     }
   };
 

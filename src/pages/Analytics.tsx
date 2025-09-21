@@ -115,8 +115,11 @@ const Analytics = () => {
       const categories: { [key: string]: number } = {};
       data?.forEach((issue) => {
         // Clean up and normalize category names
-        const category = issue.category ? issue.category.trim().toLowerCase() : 'other';
-        const displayCategory = category.charAt(0).toUpperCase() + category.slice(1);
+        const category = issue.category
+          ? issue.category.trim().toLowerCase()
+          : "other";
+        const displayCategory =
+          category.charAt(0).toUpperCase() + category.slice(1);
         categories[displayCategory] = (categories[displayCategory] || 0) + 1;
       });
 
@@ -136,8 +139,12 @@ const Analytics = () => {
       const statuses: { [key: string]: number } = {};
       data?.forEach((issue) => {
         // Clean up and normalize status names
-        const status = issue.status ? issue.status.trim().toLowerCase() : 'submitted';
-        const displayStatus = status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+        const status = issue.status
+          ? issue.status.trim().toLowerCase()
+          : "submitted";
+        const displayStatus = status
+          .replace("_", " ")
+          .replace(/\b\w/g, (l: string) => l.toUpperCase());
         statuses[displayStatus] = (statuses[displayStatus] || 0) + 1;
       });
 
@@ -157,8 +164,11 @@ const Analytics = () => {
       const priorities: { [key: string]: number } = {};
       data?.forEach((issue) => {
         // Clean up and normalize priority names
-        const priority = issue.priority ? issue.priority.trim().toLowerCase() : 'medium';
-        const displayPriority = priority.charAt(0).toUpperCase() + priority.slice(1);
+        const priority = issue.priority
+          ? issue.priority.trim().toLowerCase()
+          : "medium";
+        const displayPriority =
+          priority.charAt(0).toUpperCase() + priority.slice(1);
         priorities[displayPriority] = (priorities[displayPriority] || 0) + 1;
       });
 
@@ -185,7 +195,7 @@ const Analytics = () => {
       const monthlyData: { [key: string]: number } = {};
       data?.forEach((issue) => {
         const date = new Date(issue.created_at);
-        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
         monthlyData[monthKey] = (monthlyData[monthKey] || 0) + 1;
       });
 
@@ -193,7 +203,7 @@ const Analytics = () => {
       return Object.entries(monthlyData)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([monthKey, count]) => {
-          const [year, month] = monthKey.split('-');
+          const [year, month] = monthKey.split("-");
           const date = new Date(parseInt(year), parseInt(month) - 1);
           const monthName = date.toLocaleDateString("en-US", {
             year: "numeric",
@@ -218,11 +228,13 @@ const Analytics = () => {
         if (issue.location) {
           // Filter out GPS coordinate entries and clean up location names
           let locationName = issue.location.trim();
-          
+
           // If it's a GPS coordinate format, extract meaningful info or skip
-          if (locationName.startsWith('GPS:')) {
+          if (locationName.startsWith("GPS:")) {
             // Extract coordinates and create a more readable format
-            const coordMatch = locationName.match(/GPS:\s*([-\d.]+),\s*([-\d.]+)/);
+            const coordMatch = locationName.match(
+              /GPS:\s*([-\d.]+),\s*([-\d.]+)/
+            );
             if (coordMatch) {
               const [, lat, lng] = coordMatch;
               locationName = `Location (${parseFloat(lat).toFixed(2)}, ${parseFloat(lng).toFixed(2)})`;
@@ -230,13 +242,15 @@ const Analytics = () => {
               return; // Skip invalid GPS formats
             }
           }
-          
+
           // Group similar locations and clean up names
-          locationName = locationName.replace(/\s+/g, ' ').trim();
-          
+          locationName = locationName.replace(/\s+/g, " ").trim();
+
           // Capitalize first letter of each word for consistency
-          locationName = locationName.replace(/\b\w/g, (l: string) => l.toUpperCase());
-          
+          locationName = locationName.replace(/\b\w/g, (l: string) =>
+            l.toUpperCase()
+          );
+
           locations[locationName] = (locations[locationName] || 0) + 1;
         }
       });
@@ -388,107 +402,110 @@ const Analytics = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                 Analytics & Reports
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-gray-600 mt-1 md:mt-2 text-sm md:text-base">
                 Insights into civic engagement and issue management
               </p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               <select
                 value={selectedTimeframe}
                 onChange={(e) => setSelectedTimeframe(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="6months">Last 6 Months</option>
                 <option value="12months">Last 12 Months</option>
               </select>
               <button
                 onClick={generateReport}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Generate Report
+                <span className="hidden sm:inline">Generate Report</span>
+                <span className="sm:hidden">Report</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-xs md:text-sm font-medium text-gray-600">
                   Total Issues
                 </p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xl md:text-2xl font-bold text-gray-900">
                   {Object.values(data.issuesByStatus).reduce(
                     (a, b) => a + b,
                     0
                   )}
                 </p>
               </div>
-              <BarChart3 className="w-8 h-8 text-blue-500" />
+              <BarChart3 className="w-6 h-6 md:w-8 md:h-8 text-blue-500" />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-xs md:text-sm font-medium text-gray-600">
                   Avg. Resolution
                 </p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-xl md:text-2xl font-bold text-green-600">
                   {data.averageResolutionTime} days
                 </p>
               </div>
-              <Clock className="w-8 h-8 text-green-500" />
+              <Clock className="w-6 h-6 md:w-8 md:h-8 text-green-500" />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-xs md:text-sm font-medium text-gray-600">
                   Active Citizens
                 </p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-xl md:text-2xl font-bold text-purple-600">
                   {data.citizenEngagement.activeUsers}
                 </p>
               </div>
-              <Users className="w-8 h-8 text-purple-500" />
+              <Users className="w-6 h-6 md:w-8 md:h-8 text-purple-500" />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">New Users</p>
-                <p className="text-2xl font-bold text-indigo-600">
+                <p className="text-xs md:text-sm font-medium text-gray-600">
+                  New Users
+                </p>
+                <p className="text-xl md:text-2xl font-bold text-indigo-600">
                   {data.citizenEngagement.newUsersThisMonth}
                 </p>
                 <p className="text-xs text-gray-500">This month</p>
               </div>
-              <TrendingUp className="w-8 h-8 text-indigo-500" />
+              <TrendingUp className="w-6 h-6 md:w-8 md:h-8 text-indigo-500" />
             </div>
           </div>
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
           {/* Issues by Status */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
               Issues by Status
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {Object.entries(data.issuesByStatus).length > 0 ? (
                 Object.entries(data.issuesByStatus).map(([status, count]) => {
                   const total = Object.values(data.issuesByStatus).reduce(
@@ -505,14 +522,14 @@ const Analytics = () => {
                       <span className="text-sm font-medium text-gray-700">
                         {status}
                       </span>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-32 bg-gray-200 rounded-full h-2">
+                      <div className="flex items-center space-x-2 md:space-x-3">
+                        <div className="w-24 md:w-32 bg-gray-200 rounded-full h-2">
                           <div
                             className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${percentage}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm text-gray-600 w-12 text-right">
+                        <span className="text-sm text-gray-600 w-8 md:w-12 text-right">
                           {count}
                         </span>
                       </div>
@@ -520,20 +537,22 @@ const Analytics = () => {
                   );
                 })
               ) : (
-                <div className="text-center py-8">
+                <div className="text-center py-6 md:py-8">
                   <BarChart3 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">No status data available</p>
+                  <p className="text-sm text-gray-500">
+                    No status data available
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Issues by Category */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
               Issues by Category
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {Object.entries(data.issuesByCategory).length > 0 ? (
                 Object.entries(data.issuesByCategory).map(
                   ([category, count]) => {
@@ -551,14 +570,14 @@ const Analytics = () => {
                         <span className="text-sm font-medium text-gray-700">
                           {category}
                         </span>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-32 bg-gray-200 rounded-full h-2">
+                        <div className="flex items-center space-x-2 md:space-x-3">
+                          <div className="w-24 md:w-32 bg-gray-200 rounded-full h-2">
                             <div
                               className="bg-green-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${percentage}%` }}
                             ></div>
                           </div>
-                          <span className="text-sm text-gray-600 w-12 text-right">
+                          <span className="text-sm text-gray-600 w-8 md:w-12 text-right">
                             {count}
                           </span>
                         </div>
@@ -567,9 +586,11 @@ const Analytics = () => {
                   }
                 )
               ) : (
-                <div className="text-center py-8">
+                <div className="text-center py-6 md:py-8">
                   <BarChart3 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">No category data available</p>
+                  <p className="text-sm text-gray-500">
+                    No category data available
+                  </p>
                 </div>
               )}
             </div>
@@ -577,14 +598,14 @@ const Analytics = () => {
         </div>
 
         {/* Monthly Trends and Top Locations */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           {/* Monthly Trends */}
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="lg:col-span-2 bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
               Monthly Issue Trends
             </h3>
             {data.issuesByMonth.length > 0 ? (
-              <div className="h-64 flex items-end justify-between space-x-2">
+              <div className="h-48 md:h-64 flex items-end justify-between space-x-1 md:space-x-2">
                 {data.issuesByMonth.map((item, index) => {
                   const maxCount = Math.max(
                     ...data.issuesByMonth.map((d) => d.count),
@@ -597,14 +618,14 @@ const Analytics = () => {
                       key={index}
                       className="flex flex-col items-center flex-1"
                     >
-                      <div className="text-xs text-gray-600 mb-2">
+                      <div className="text-xs text-gray-600 mb-1 md:mb-2">
                         {item.count}
                       </div>
                       <div
                         className="bg-blue-500 w-full rounded-t transition-all duration-300 hover:bg-blue-600"
                         style={{ height: `${height}%`, minHeight: "4px" }}
                       ></div>
-                      <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-left">
+                      <div className="text-xs text-gray-500 mt-1 md:mt-2 transform -rotate-45 origin-left whitespace-nowrap">
                         {item.month}
                       </div>
                     </div>
@@ -612,41 +633,52 @@ const Analytics = () => {
                 })}
               </div>
             ) : (
-              <div className="h-64 flex items-center justify-center">
+              <div className="h-48 md:h-64 flex items-center justify-center">
                 <div className="text-center">
                   <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">No trend data available</p>
-                  <p className="text-xs text-gray-400 mt-1">Data will appear as issues are reported over time</p>
+                  <p className="text-sm text-gray-500">
+                    No trend data available
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Data will appear as issues are reported over time
+                  </p>
                 </div>
               </div>
             )}
           </div>
 
           {/* Top Locations */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
               Top Issue Locations
             </h3>
             <div className="space-y-3">
               {data.topLocations.length > 0 ? (
                 data.topLocations.slice(0, 8).map((location, index) => (
-                  <div key={index} className="flex items-center justify-between">
+                  <div
+                    key={index}
+                    className="flex items-center justify-between"
+                  >
                     <div className="flex items-center space-x-2">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-700 truncate max-w-32">
+                      <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700 truncate max-w-24 md:max-w-32">
                         {location.location}
                       </span>
                     </div>
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-gray-900 flex-shrink-0">
                       {location.count}
                     </span>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8">
+                <div className="text-center py-6 md:py-8">
                   <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">No location data available</p>
-                  <p className="text-xs text-gray-400 mt-1">Locations will appear as issues are reported</p>
+                  <p className="text-sm text-gray-500">
+                    No location data available
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Locations will appear as issues are reported
+                  </p>
                 </div>
               )}
             </div>

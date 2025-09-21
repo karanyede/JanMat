@@ -31,7 +31,7 @@ const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
               .select("role")
               .eq("id", user.id)
               .single();
-            
+
             if (!error && userData) {
               setUserRole(userData.role);
             }
@@ -219,29 +219,47 @@ const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
         </div>
 
         {/* Debug Info - Only in development */}
-        {process.env.NODE_ENV === 'development' && (
+        {false && (
           <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-            <div><strong>Debug - GPS Status:</strong></div>
-            <div>issue.latitude: {issue.latitude} (type: {typeof issue.latitude})</div>
-            <div>issue.longitude: {issue.longitude} (type: {typeof issue.longitude})</div>
+            <div>
+              <strong>Debug - GPS Status:</strong>
+            </div>
+            <div>
+              issue.latitude: {issue.latitude} (type: {typeof issue.latitude})
+            </div>
+            <div>
+              issue.longitude: {issue.longitude} (type: {typeof issue.longitude}
+              )
+            </div>
             <div>userRole: {userRole}</div>
-            <div>user exists: {user ? 'YES' : 'NO'}</div>
-            <div>Should show button: {(user && userRole === "government" && issue.latitude && issue.longitude) ? 'YES' : 'NO'}</div>
+            <div>user exists: {user ? "YES" : "NO"}</div>
+            <div>
+              Should show button:{" "}
+              {user &&
+              userRole === "government" &&
+              issue.latitude &&
+              issue.longitude
+                ? "YES"
+                : "NO"}
+            </div>
           </div>
         )}
 
         {/* Solve Problem Button - ONLY for Government Officials */}
-        {user && userRole === "government" && issue.latitude && issue.longitude && (
-          <div className="mt-3 mb-2">
-            <Link
-              to={`/issues/${issue.id}?showMap=true`}
-              className="flex items-center justify-center space-x-2 w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-            >
-              <MapPin size={18} strokeWidth={1.5} />
-              <span>Solve Problem - View Location</span>
-            </Link>
-          </div>
-        )}
+        {user &&
+          userRole === "government" &&
+          issue.latitude &&
+          issue.longitude && (
+            <div className="mt-3 mb-2">
+              <Link
+                to={`/issues/${issue.id}?showMap=true`}
+                className="flex items-center justify-center space-x-2 w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                <MapPin size={18} strokeWidth={1.5} />
+                <span>Solve Problem - View Location</span>
+              </Link>
+            </div>
+          )}
 
         {/* View comments link */}
         <Link
