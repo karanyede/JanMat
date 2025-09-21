@@ -64,7 +64,11 @@ class NewsAPIService {
       
       if (!response.ok) {
         if (response.status === 403) {
-          throw new Error('API quota exceeded. Please try again later.');
+          const errorData = await response.json().catch(() => ({}));
+          if (errorData.errors?.[0]?.includes('request limit')) {
+            throw new Error('Daily API quota exceeded. Quota resets at midnight UTC.');
+          }
+          throw new Error('API access denied. Please check your API key.');
         }
         throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }

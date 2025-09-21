@@ -120,8 +120,14 @@ const NewsFeed = () => {
           // Use demo data when API is not configured
           setExternalNews(newsAPI.getDemoNews());
         }
-      } catch (apiError) {
+      } catch (apiError: any) {
         console.warn('External news API failed, using demo data:', apiError);
+        
+        // Check if it's a quota limit error
+        if (apiError.message?.includes('quota') || apiError.message?.includes('limit')) {
+          setError('News API daily quota exceeded. Showing demo content. Quota resets at midnight UTC.');
+        }
+        
         setExternalNews(newsAPI.getDemoNews());
         setApiConnected(false);
       }
@@ -396,7 +402,7 @@ const NewsFeed = () => {
           ) : (
             <div className={
               viewMode === "grid" 
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                ? "grid grid-cols-1 gap-6"
                 : "space-y-6"
             }>
               {externalNews.map((article) => (
@@ -464,31 +470,21 @@ const NewsFeed = () => {
                     </div>
 
                     {/* External News Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           openNewsModal(article, true);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium justify-center text-sm sm:text-base col-span-2 sm:col-span-1 sm:flex-1"
                       >
                         <Eye className="w-4 h-4" />
                         Read Full
                       </button>
                       
-                      <a
-                        href={article.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Original
-                      </a>
-                      
                       <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (navigator.share) {
                             navigator.share({
                               title: article.title,
@@ -500,11 +496,22 @@ const NewsFeed = () => {
                             alert("Link copied to clipboard!");
                           }
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium justify-center text-sm"
                       >
                         <Share className="w-4 h-4" />
-                        Share
+                        <span className="hidden sm:inline">Share</span>
                       </button>
+                      
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium justify-center text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span className="hidden sm:inline">Source</span>
+                      </a>
                     </div>
                   </div>
                 </article>
@@ -526,7 +533,7 @@ const NewsFeed = () => {
           ) : (
             <div className={
               viewMode === "grid" 
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                ? "grid grid-cols-1 gap-6"
                 : "space-y-6"
             }>
               {filteredNews.map((item) => (
@@ -572,20 +579,22 @@ const NewsFeed = () => {
                   </div>
 
                   {/* Content Section */}
-                  <div className="p-6 flex-1">
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                  <div className="p-6 flex-1 flex flex-col">
+                    {/* Title Section */}
+                    <div className="mb-4">
+                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">
                         {item.title}
                       </h3>
                       {getPriorityBadge(item.priority)}
                     </div>
 
-                    <p className="text-gray-600 mb-4 line-clamp-3">
+                    {/* Description */}
+                    <p className="text-gray-600 mb-4 line-clamp-3 flex-grow">
                       {item.content}
                     </p>
 
                     {/* Meta Information */}
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4 flex-wrap">
                       <div className="flex items-center gap-1">
                         <User className="w-4 h-4" />
                         <span>{item.author?.full_name || "Government"}</span>
@@ -597,13 +606,13 @@ const NewsFeed = () => {
                       {item.location && (
                         <div className="flex items-center gap-1">
                           <MapPin className="w-4 h-4" />
-                          <span>{item.location}</span>
+                          <span className="truncate max-w-[100px]">{item.location}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Stats */}
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                    <div className="flex items-center gap-6 text-sm text-gray-500 mb-6 pb-4 border-b border-gray-100">
                       <div className="flex items-center gap-1">
                         <Eye className="w-4 h-4" />
                         <span>{item.views || 0} views</span>
@@ -615,32 +624,37 @@ const NewsFeed = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleLike(item.id)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                          likedNews.has(item.id)
-                            ? "bg-red-100 text-red-600 hover:bg-red-200"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        <Heart className={`w-4 h-4 ${likedNews.has(item.id) ? "fill-current" : ""}`} />
-                        {item.likes}
-                      </button>
+                    <div className="mt-auto">
+                      <div className="flex items-center gap-2 mb-3">
+                        <button
+                          onClick={() => handleLike(item.id)}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-sm flex-1 justify-center ${
+                            likedNews.has(item.id)
+                              ? "bg-red-500 text-white hover:bg-red-600"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          <Heart className={`w-4 h-4 ${likedNews.has(item.id) ? "fill-current" : ""}`} />
+                          <span>{item.likes}</span>
+                        </button>
+                        
+                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm flex-1 justify-center">
+                          <MessageCircle className="w-4 h-4" />
+                          <span>Comment</span>
+                        </button>
+                      </div>
                       
-                      <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
-                        <MessageCircle className="w-4 h-4" />
-                        Comment
-                      </button>
-                      
-                      <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
-                        <Share className="w-4 h-4" />
-                        Share
-                      </button>
-                      
-                      <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors ml-auto">
-                        <Bookmark className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm flex-1 justify-center">
+                          <Share className="w-4 h-4" />
+                          <span>Share</span>
+                        </button>
+                        
+                        <button className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm flex-1 justify-center">
+                          <Bookmark className="w-4 h-4" />
+                          <span>Save</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* External Link */}

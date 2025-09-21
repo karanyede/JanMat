@@ -48,12 +48,8 @@ const ReportIssue = () => {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Debug camera modal state
   useEffect(() => {
-    console.log("ReportIssue: showCamera changed to:", showCamera);
-    if (showCamera) {
-      console.log("ReportIssue: GeotagCamera should be mounting now");
-    }
+    // Camera state tracking
   }, [showCamera]);
 
   // Cleanup preview URLs on unmount
@@ -85,9 +81,6 @@ const ReportIssue = () => {
   ];
 
   const handleGeotagCapture = (imageBlob: Blob, location: { latitude: number; longitude: number; timestamp: string }) => {
-    console.log("Photo captured with location:", location);
-    console.log("Blob size:", imageBlob.size);
-    
     const photo = {
       blob: imageBlob,
       location,
@@ -97,13 +90,11 @@ const ReportIssue = () => {
     
     setGeotaggedPhotos(prev => {
       const updated = [...prev, photo];
-      console.log("Total photos now:", updated.length);
       return updated;
     });
     
     // Auto-update location if not already set
     if (!formData.latitude || !formData.longitude) {
-      console.log("Auto-updating form location");
       setFormData(prev => ({
         ...prev,
         latitude: location.latitude,
@@ -488,7 +479,6 @@ const ReportIssue = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      console.log("Opening geotag camera...");
                       setShowCamera(true);
                     }}
                     className="w-full flex flex-col items-center space-y-2 hover:bg-gray-50 transition-colors rounded-lg p-4"
@@ -515,17 +505,6 @@ const ReportIssue = () => {
                       </p>
                     )}
                   </button>
-                  
-                  {/* Debug info */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
-                      <div><strong>Debug Info:</strong></div>
-                      <div>Photos captured: {geotaggedPhotos.length}</div>
-                      <div>Camera open: {showCamera ? 'Yes' : 'No'}</div>
-                      <div>GPS Location: {formData.latitude && formData.longitude ? 
-                        `${formData.latitude.toFixed(4)}, ${formData.longitude.toFixed(4)}` : 'Not set'}</div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Geotagged Photos Preview */}
@@ -612,7 +591,6 @@ const ReportIssue = () => {
             key="simple-camera"
             onCapture={handleGeotagCapture}
             onClose={() => {
-              console.log("ReportIssue: Closing camera");
               setShowCamera(false);
             }}
             maxPhotos={4}

@@ -578,33 +578,6 @@ const GeotagCamera: React.FC<GeotagCameraProps> = ({ onCapture, onClose, maxPhot
               </div>
             )}
             
-            {/* Debug Info */}
-            <div className="absolute top-4 left-4 bg-black/90 text-white p-3 rounded text-sm max-w-xs">
-              <div>🎥 Camera: {isStreamActive ? 'Active' : 'Inactive'}</div>
-              <div>📸 Photos: {capturedPhotos.length}/{maxPhotos}</div>
-              <div>🔄 Mode: {facingMode}</div>
-              <div>📺 Video Size: {videoRef.current?.videoWidth || 0}x{videoRef.current?.videoHeight || 0}</div>
-              <div>🔌 Stream: {streamRef.current ? 'Connected' : 'None'}</div>
-              <div>▶️ Playing: {videoRef.current?.paused === false ? 'Yes' : 'No'}</div>
-              
-              {/* Force video display button */}
-              {streamRef.current && !isStreamActive && (
-                <button
-                  onClick={() => {
-                    if (videoRef.current) {
-                      videoRef.current.style.display = 'block';
-                      videoRef.current.play();
-                      setIsStreamActive(true);
-                      console.log("🔧 Force video display activated");
-                    }
-                  }}
-                  className="mt-2 w-full bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded text-xs"
-                >
-                  🔧 Force Video
-                </button>
-              )}
-            </div>
-            
             {/* Capture Overlay */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute inset-8 border-2 border-white/50 rounded-lg">

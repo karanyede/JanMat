@@ -218,18 +218,6 @@ const IssueCard = ({ issue, onUpvote }: IssueCardProps) => {
           </span>
         </div>
 
-        {/* Debug Info - Only in development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-            <div><strong>Debug - GPS Status:</strong></div>
-            <div>issue.latitude: {issue.latitude} (type: {typeof issue.latitude})</div>
-            <div>issue.longitude: {issue.longitude} (type: {typeof issue.longitude})</div>
-            <div>userRole: {userRole}</div>
-            <div>user exists: {user ? 'YES' : 'NO'}</div>
-            <div>Should show button: {(user && userRole === "government" && issue.latitude && issue.longitude) ? 'YES' : 'NO'}</div>
-          </div>
-        )}
-
         {/* Solve Problem Button - ONLY for Government Officials */}
         {user && userRole === "government" && issue.latitude && issue.longitude && (
           <div className="mt-3 mb-2">
