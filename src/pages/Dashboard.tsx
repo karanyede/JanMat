@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import IssueCard from "../components/IssueCard";
 import StoryCarousel from "../components/StoryCarousel";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { createUpvoteNotification } from "../lib/notificationUtils";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -132,26 +133,22 @@ const Dashboard = () => {
         return;
       }
 
-      const hasUpvoted = issue.upvoted_by?.includes(user.id) || false;
-      const newUpvotedBy = hasUpvoted
-        ? (issue.upvoted_by || []).filter((id) => id !== user.id)
-        : [...(issue.upvoted_by || []), user.id];
-
-      console.log("Updating upvote for issue:", issueId, { hasUpvoted, newUpvotedBy });
-
-      const { error } = await supabase
-        .from("issues")
-        .update({
-          upvotes: newUpvotedBy.length,
-          upvoted_by: newUpvotedBy,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", issueId);
+      // Use RPC with SECURITY DEFINER to safely toggle upvote under RLS
+      const { data: toggled, error } = await supabase.rpc("upvote_issue", {
+        issue_id: issueId,
+      });
 
       if (error) {
-        console.error("Error updating upvote:", error);
+        console.error("Error updating upvote via RPC:", error);
+        alert("Failed to update upvote. Please try again.");
         return;
       }
+
+      // 'toggled' returns true if upvote was added, false if removed
+      const addingUpvote = Boolean(toggled);
+      const newUpvotedBy = addingUpvote
+        ? Array.from(new Set([...(issue.upvoted_by || []), user.id]))
+        : (issue.upvoted_by || []).filter((id) => id !== user.id);
 
       // Update local state immediately
       setIssues((prevIssues) =>
@@ -166,9 +163,15 @@ const Dashboard = () => {
         )
       );
 
+      // Create notification for the issue owner (if it's not the same user)
+      if (issue.reporter_id && issue.reporter_id !== user.id) {
+        await createUpvoteNotification(issue.reporter_id, issue.title, issueId);
+      }
+
       console.log("Upvote updated successfully");
     } catch (error) {
       console.error("Error updating upvote:", error);
+      alert("Failed to update upvote. Please try again.");
     } finally {
       setUpvotingIds((prev) => {
         const newSet = new Set(prev);

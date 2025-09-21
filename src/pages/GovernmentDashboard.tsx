@@ -314,9 +314,16 @@ const GovernmentDashboard = () => {
     try {
       console.log("Creating poll with data:", pollData);
 
+      // Convert options array to proper format with text and votes
+      const formattedOptions = pollData.options.map((option: string) => ({
+        text: option,
+        votes: 0,
+      }));
+
       const { error } = await supabase.from("polls").insert([
         {
           ...pollData,
+          options: formattedOptions,
           creator_id: user?.id, // Fixed: was 'created_by', should be 'creator_id'
           is_active: true,
           voted_by: [],
@@ -520,28 +527,36 @@ const GovernmentDashboard = () => {
                       >
                         {issue.priority}
                       </span>
-                      <span
-                        className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
-                      >
-                        📋 {issue.category.charAt(0).toUpperCase() + issue.category.slice(1).replace('_', ' ')} Dept.
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        📋{" "}
+                        {issue.category.charAt(0).toUpperCase() +
+                          issue.category.slice(1).replace("_", " ")}{" "}
+                        Dept.
                       </span>
                     </div>
                     <p className="text-gray-600 text-sm mb-2">
                       {issue.description}
                     </p>
-                    
+
                     {/* Department Assignment Info */}
                     <div className="bg-gray-50 rounded-lg p-3 mb-3">
                       <div className="flex flex-wrap items-center gap-4 text-sm">
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-700">Department:</span>
+                          <span className="font-medium text-gray-700">
+                            Department:
+                          </span>
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
                             {getDepartmentName(issue.category)}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-700">Category:</span>
-                          <span className="text-gray-600">{issue.category.charAt(0).toUpperCase() + issue.category.slice(1).replace('_', ' ')}</span>
+                          <span className="font-medium text-gray-700">
+                            Category:
+                          </span>
+                          <span className="text-gray-600">
+                            {issue.category.charAt(0).toUpperCase() +
+                              issue.category.slice(1).replace("_", " ")}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -553,19 +568,21 @@ const GovernmentDashboard = () => {
                       <span>{formatRelativeTime(issue.created_at)}</span>
                       <span>👍 {issue.upvotes}</span>
                     </div>
-                    
+
                     {/* Solve Problem - View Location Button - ONLY for Government Officials and only if location is available */}
-                    {userProfile?.role === "government" && issue.latitude && issue.longitude && (
-                      <div className="mt-3">
-                        <Link
-                          to={`/issues/${issue.id}?showMap=true`}
-                          className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                        >
-                          <MapPin size={16} strokeWidth={1.5} />
-                          <span>Solve Problem - View Location</span>
-                        </Link>
-                      </div>
-                    )}
+                    {userProfile?.role === "government" &&
+                      issue.latitude &&
+                      issue.longitude && (
+                        <div className="mt-3">
+                          <Link
+                            to={`/issues/${issue.id}?showMap=true`}
+                            className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                          >
+                            <MapPin size={16} strokeWidth={1.5} />
+                            <span>Solve Problem - View Location</span>
+                          </Link>
+                        </div>
+                      )}
                   </div>
                   <div className="flex-shrink-0 md:ml-4">
                     <label className="block text-xs font-medium text-gray-700 mb-1">

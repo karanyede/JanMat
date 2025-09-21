@@ -4,6 +4,7 @@ import { Poll, Post } from "../types";
 import { useAuth } from "../hooks/useAuth";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { ConfigurationStatus } from "../components/ConfigurationStatus";
+import { createPollVoteNotification } from "../lib/notificationUtils";
 import {
   Calendar,
   Users,
@@ -163,6 +164,11 @@ const Polls = () => {
         return;
       }
 
+      // Create notification for the poll creator (if it's not the same user)
+      if (poll.creator_id && poll.creator_id !== user.id) {
+        await createPollVoteNotification(poll.creator_id, poll.title, pollId);
+      }
+
       // Update local state
       setPolls((prev) =>
         prev.map((p) =>
@@ -182,7 +188,10 @@ const Polls = () => {
   };
 
   const handleLike = async (postId: string) => {
-    if (!user) return;
+    if (!user) {
+      alert("Please log in to like posts");
+      return;
+    }
 
     try {
       // Get the current post item
@@ -191,24 +200,24 @@ const Polls = () => {
 
       // Check if user already liked
       const hasLiked = post.liked_by.includes(user.id);
+
+      // Use the database function for consistent like handling
+      const { error } = await supabase.rpc("like_news", {
+        news_id: postId,
+      });
+
+      if (error) {
+        console.error("Error updating like:", error);
+        alert("Failed to update like. Please try again.");
+        return;
+      }
+
+      // Calculate updated values based on previous state
       const updatedLikedBy = hasLiked
         ? post.liked_by.filter((id) => id !== user.id)
         : [...post.liked_by, user.id];
 
       const updatedLikes = hasLiked ? post.likes - 1 : post.likes + 1;
-
-      const { error } = await supabase
-        .from("posts")
-        .update({
-          likes: updatedLikes,
-          liked_by: updatedLikedBy,
-        })
-        .eq("id", postId);
-
-      if (error) {
-        console.error("Error updating like:", error);
-        return;
-      }
 
       // Update local state
       setGovernmentPosts((prev) =>
@@ -224,6 +233,7 @@ const Polls = () => {
       );
     } catch (err) {
       console.error("Error liking post:", err);
+      alert("Failed to update like. Please try again.");
     }
   };
 
@@ -327,7 +337,7 @@ const Polls = () => {
             if (item.type === "poll") {
               const poll = item as Poll & { type: string; date: Date };
               const totalVotes = poll.options.reduce(
-                (sum, option) => sum + option.votes,
+                (sum, option) => sum + (option.votes || 0),
                 0
               );
               const hasVoted = user && poll.voted_by.includes(user.id);
@@ -339,49 +349,55 @@ const Polls = () => {
                   className="bg-white border-b border-gray-200 md:border md:rounded-lg overflow-hidden"
                 >
                   {/* Poll Header */}
-                  <div className="flex items-center space-x-3 p-4 border-b border-gray-100">
-                    <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-medium text-sm">
+                  <div className="flex items-center space-x-3 p-3 md:p-4 border-b border-gray-100">
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-medium text-xs md:text-sm">
                         {poll.creator?.full_name?.charAt(0).toUpperCase() ||
                           "G"}
                       </span>
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <h3 className="font-medium text-gray-900">
+                        <h3 className="font-medium text-gray-900 text-sm md:text-base truncate">
                           {poll.creator?.full_name || "Government Official"}
                         </h3>
-                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full flex-shrink-0">
                           Poll
                         </span>
                       </div>
-                      <div className="flex items-center text-sm text-gray-500 mt-0.5">
-                        <Calendar size={12} className="mr-1" />
-                        <span>Ends {formatRelativeTime(poll.end_date)}</span>
+                      <div className="flex items-center text-xs md:text-sm text-gray-500 mt-0.5">
+                        <Calendar size={10} className="mr-1 md:hidden" />
+                        <Calendar size={12} className="mr-1 hidden md:inline" />
+                        <span className="truncate">
+                          Ends {formatRelativeTime(poll.end_date)}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Users size={14} className="mr-1" />
+                    <div className="text-right flex-shrink-0">
+                      <div className="flex items-center text-xs md:text-sm text-gray-500">
+                        <Users size={12} className="mr-1 md:hidden" />
+                        <Users size={14} className="mr-1 hidden md:inline" />
                         <span>{totalVotes} votes</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Poll Content */}
-                  <div className="p-4">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                  <div className="p-3 md:p-4">
+                    <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-2">
                       {poll.title}
                     </h2>
                     {poll.description && (
-                      <p className="text-gray-700 mb-4">{poll.description}</p>
+                      <p className="text-sm md:text-base text-gray-700 mb-4">
+                        {poll.description}
+                      </p>
                     )}
 
                     {/* Poll Options */}
-                    <div className="space-y-3">
+                    <div className="space-y-2 md:space-y-3">
                       {poll.options.map((option, index) => {
                         const percentage = calculatePercentage(
-                          option.votes,
+                          option.votes || 0,
                           totalVotes
                         );
 
@@ -390,18 +406,18 @@ const Polls = () => {
                             <button
                               onClick={() => handleVote(poll.id, index)}
                               disabled={hasVoted || isExpired}
-                              className={`w-full text-left p-3 rounded-lg border transition-all ${
+                              className={`w-full text-left p-2 md:p-3 rounded-lg border transition-all ${
                                 hasVoted || isExpired
                                   ? "cursor-not-allowed border-gray-200 bg-gray-50"
                                   : "hover:border-purple-300 hover:bg-purple-50 border-gray-200"
                               }`}
                             >
                               <div className="flex items-center justify-between mb-1">
-                                <span className="font-medium text-gray-900">
-                                  {option.text}
+                                <span className="font-medium text-gray-900 text-sm md:text-base pr-2">
+                                  {option.text || `Option ${index + 1}`}
                                 </span>
                                 {(hasVoted || isExpired) && (
-                                  <span className="text-sm font-medium text-purple-600">
+                                  <span className="text-xs md:text-sm font-medium text-purple-600 flex-shrink-0">
                                     {percentage}%
                                   </span>
                                 )}
@@ -409,15 +425,15 @@ const Polls = () => {
 
                               {(hasVoted || isExpired) && (
                                 <>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div className="w-full bg-gray-200 rounded-full h-1.5 md:h-2">
                                     <div
-                                      className="bg-purple-500 h-2 rounded-full transition-all duration-500"
+                                      className="bg-purple-500 h-1.5 md:h-2 rounded-full transition-all duration-500"
                                       style={{ width: `${percentage}%` }}
                                     ></div>
                                   </div>
                                   <div className="flex items-center justify-between mt-1">
                                     <span className="text-xs text-gray-500">
-                                      {option.votes} votes
+                                      {option.votes || 0} votes
                                     </span>
                                   </div>
                                 </>
@@ -429,8 +445,8 @@ const Polls = () => {
                     </div>
 
                     {/* Poll Status */}
-                    <div className="mt-4 pt-3 border-t border-gray-100">
-                      <div className="flex items-center justify-between text-sm">
+                    <div className="mt-3 md:mt-4 pt-3 border-t border-gray-100">
+                      <div className="flex items-center justify-between text-xs md:text-sm">
                         <span className="text-gray-500">
                           {hasVoted
                             ? "✓ You voted"
@@ -461,44 +477,46 @@ const Polls = () => {
                   className="bg-white border-b border-gray-200 md:border md:rounded-lg overflow-hidden"
                 >
                   {/* Post Header */}
-                  <div className="flex items-center space-x-3 p-4 border-b border-gray-100">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-medium text-sm">
+                  <div className="flex items-center space-x-3 p-3 md:p-4 border-b border-gray-100">
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-medium text-xs md:text-sm">
                         {post.author?.full_name?.charAt(0).toUpperCase() || "G"}
                       </span>
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <h3 className="font-medium text-gray-900">
+                        <h3 className="font-medium text-gray-900 text-sm md:text-base truncate">
                           {post.author?.full_name || "Government Official"}
                         </h3>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full flex-shrink-0">
                           Announcement
                         </span>
                       </div>
-                      <div className="flex items-center text-sm text-gray-500 mt-0.5">
-                        <Calendar size={12} className="mr-1" />
-                        <span>
+                      <div className="flex items-center text-xs md:text-sm text-gray-500 mt-0.5">
+                        <Calendar size={10} className="mr-1 md:hidden" />
+                        <Calendar size={12} className="mr-1 hidden md:inline" />
+                        <span className="truncate">
                           {formatRelativeTime(
                             post.published_at || post.created_at
                           )}
                         </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Eye size={14} className="mr-1" />
+                    <div className="text-right flex-shrink-0">
+                      <div className="flex items-center text-xs md:text-sm text-gray-500">
+                        <Eye size={12} className="mr-1 md:hidden" />
+                        <Eye size={14} className="mr-1 hidden md:inline" />
                         <span>{post.views || 0} views</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Post Content */}
-                  <div className="p-4">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                  <div className="p-3 md:p-4">
+                    <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-2">
                       {post.title}
                     </h2>
-                    <p className="text-gray-700 mb-4 line-clamp-3">
+                    <p className="text-sm md:text-base text-gray-700 mb-4 line-clamp-3">
                       {post.content}
                     </p>
 
@@ -508,14 +526,14 @@ const Polls = () => {
                         <img
                           src={post.image_url}
                           alt={post.title}
-                          className="w-full h-48 object-cover rounded-lg"
+                          className="w-full h-40 md:h-48 object-cover rounded-lg"
                         />
                       </div>
                     )}
 
                     {/* Post Category & Priority */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
+                    <div className="flex flex-col space-y-3 md:flex-row md:items-center md:justify-between md:space-y-0">
+                      <div className="flex items-center flex-wrap gap-2">
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
                             post.category === "emergency"
@@ -535,24 +553,26 @@ const Polls = () => {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <div className="flex items-center justify-center md:justify-end">
                         <button
                           onClick={() => handleLike(post.id)}
-                          className={`flex items-center space-x-1 hover:text-red-500 transition-colors ${
-                            post.liked_by.includes(user?.id || "")
-                              ? "text-red-500"
-                              : "text-gray-500"
+                          className={`flex items-center space-x-1 hover:text-red-500 transition-colors p-2 rounded-lg ${
+                            user && post.liked_by.includes(user.id)
+                              ? "text-red-500 bg-red-50"
+                              : "text-gray-500 hover:bg-gray-50"
                           }`}
                         >
                           <Heart
-                            size={16}
+                            size={14}
                             className={
-                              post.liked_by.includes(user?.id || "")
+                              user && post.liked_by.includes(user.id)
                                 ? "fill-current"
                                 : ""
                             }
                           />
-                          <span>{post.likes} likes</span>
+                          <span className="text-xs md:text-sm font-medium">
+                            {post.likes} likes
+                          </span>
                         </button>
                       </div>
                     </div>
