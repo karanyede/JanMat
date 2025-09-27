@@ -10,8 +10,6 @@ import {
   Share, 
   RefreshCw, 
   Heart,
-  MessageCircle,
-  Bookmark,
   Globe,
   Flag,
   MapPin,
@@ -153,16 +151,67 @@ const NewsFeed = () => {
     fetchNews();
   }, [user]);
 
-  const openNewsModal = (article: ExternalNewsArticle | News, isExternal: boolean = false) => {
+  const openNewsModal = async (article: ExternalNewsArticle | News, isExternal: boolean = false) => {
+    console.log("Opening news modal for:", article.title);
+    console.log("Is external:", isExternal);
+    console.log("User:", user?.id);
+    
     setSelectedArticle(article);
     setIsExternalArticle(isExternal);
     setIsModalOpen(true);
+    
+    // Increment view count for internal JanMat news only
+    if (!isExternal && user) {
+      await incrementViewCount(article as News);
+    } else {
+      console.log("Not incrementing views - isExternal:", isExternal, "user:", !!user);
+    }
   };
 
   const closeNewsModal = () => {
     setSelectedArticle(null);
     setIsModalOpen(false);
     setIsExternalArticle(false);
+  };
+
+  const incrementViewCount = async (newsItem: News) => {
+    if (!user) {
+      console.log("No user logged in, not incrementing views");
+      return;
+    }
+
+    try {
+      const currentViews = newsItem.views || 0;
+      const newViewCount = currentViews + 1;
+      
+      console.log("Incrementing views from", currentViews, "to", newViewCount, "for article:", newsItem.id);
+      
+      // Update views in database
+      const { data, error } = await supabase
+        .from("news")
+        .update({ views: newViewCount })
+        .eq("id", newsItem.id)
+        .select();
+      
+      if (error) {
+        console.error("Error updating views:", error);
+        throw error;
+      }
+      
+      console.log("Successfully updated views in database:", data);
+      
+      // Update local state to reflect new view count
+      setNews(prev => prev.map(n => 
+        n.id === newsItem.id 
+          ? { ...n, views: newViewCount }
+          : n
+      ));
+      
+      console.log("Updated local state with new view count");
+      
+    } catch (err) {
+      console.error("Error incrementing view count:", err);
+    }
   };
 
   const handleLike = async (newsId: string) => {
@@ -205,6 +254,36 @@ const NewsFeed = () => {
 
     } catch (err) {
       console.error("Error updating like:", err);
+    }
+  };
+
+  const handleShare = async (newsItem: News) => {
+    const shareData = {
+      title: newsItem.title,
+      text: newsItem.content.substring(0, 200) + '...',
+      url: `${window.location.origin}/news/${newsItem.id}`
+    };
+
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback - copy to clipboard
+        await navigator.clipboard.writeText(`${newsItem.title}\n\n${shareData.text}\n\nRead more: ${shareData.url}`);
+        
+        // Show toast notification (you can replace this with your notification system)
+        alert("News link copied to clipboard!");
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+      // Fallback to copy to clipboard
+      try {
+        await navigator.clipboard.writeText(`${newsItem.title}\n\n${shareData.text}\n\nRead more: ${shareData.url}`);
+        alert("News link copied to clipboard!");
+      } catch (clipboardErr) {
+        console.error("Clipboard access failed:", clipboardErr);
+        alert("Unable to share. Please copy the link manually.");
+      }
     }
   };
 
@@ -283,6 +362,7 @@ const NewsFeed = () => {
                 Live
               </span>}
             </p>
+            
             <div className="flex items-center justify-center gap-8 text-blue-100">
               <div className="text-center">
                 <div className="text-2xl font-bold text-white">{news.length}+</div>
@@ -539,9 +619,10 @@ const NewsFeed = () => {
               {filteredNews.map((item) => (
                 <article
                   key={item.id}
-                  className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${
+                  className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer ${
                     viewMode === "list" ? "flex" : ""
                   }`}
+                  onClick={() => openNewsModal(item, false)}
                 >
                   {/* Image Section */}
                   <div className={`relative overflow-hidden ${
@@ -625,34 +706,31 @@ const NewsFeed = () => {
 
                     {/* Action Buttons */}
                     <div className="mt-auto">
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-3">
                         <button
-                          onClick={() => handleLike(item.id)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-sm flex-1 justify-center ${
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLike(item.id);
+                          }}
+                          className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all text-sm flex-1 justify-center ${
                             likedNews.has(item.id)
                               ? "bg-red-500 text-white hover:bg-red-600"
                               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                           }`}
                         >
                           <Heart className={`w-4 h-4 ${likedNews.has(item.id) ? "fill-current" : ""}`} />
-                          <span>{item.likes}</span>
+                          <span>{item.likes || 0}</span>
                         </button>
                         
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm flex-1 justify-center">
-                          <MessageCircle className="w-4 h-4" />
-                          <span>Comment</span>
-                        </button>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm flex-1 justify-center">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(item);
+                          }}
+                          className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm flex-1 justify-center"
+                        >
                           <Share className="w-4 h-4" />
                           <span>Share</span>
-                        </button>
-                        
-                        <button className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm flex-1 justify-center">
-                          <Bookmark className="w-4 h-4" />
-                          <span>Save</span>
                         </button>
                       </div>
                     </div>
@@ -663,6 +741,7 @@ const NewsFeed = () => {
                         href={item.external_url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="inline-flex items-center gap-2 mt-4 text-blue-600 hover:text-blue-800 font-medium transition-colors"
                       >
                         <ExternalLink className="w-4 h-4" />

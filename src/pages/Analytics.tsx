@@ -4,7 +4,6 @@ import { useAuth } from "../hooks/useAuth";
 import {
   BarChart3,
   TrendingUp,
-  Clock,
   Users,
   AlertTriangle,
   Download,
@@ -17,7 +16,6 @@ interface AnalyticsData {
   issuesByPriority: { [key: string]: number };
   issuesByMonth: { month: string; count: number }[];
   topLocations: { location: string; count: number }[];
-  averageResolutionTime: number;
   citizenEngagement: {
     totalUsers: number;
     activeUsers: number;
@@ -34,7 +32,6 @@ const Analytics = () => {
     issuesByPriority: {},
     issuesByMonth: [],
     topLocations: [],
-    averageResolutionTime: 0,
     citizenEngagement: {
       totalUsers: 0,
       activeUsers: 0,
@@ -78,7 +75,6 @@ const Analytics = () => {
         issuesByPriority,
         issuesByMonth,
         topLocations,
-        resolutionTime,
         citizenEngagement,
       ] = await Promise.all([
         fetchIssuesByCategory(),
@@ -86,7 +82,6 @@ const Analytics = () => {
         fetchIssuesByPriority(),
         fetchIssuesByMonth(),
         fetchTopLocations(),
-        fetchAverageResolutionTime(),
         fetchCitizenEngagement(),
       ]);
 
@@ -96,7 +91,6 @@ const Analytics = () => {
         issuesByPriority,
         issuesByMonth,
         topLocations,
-        averageResolutionTime: resolutionTime,
         citizenEngagement,
       });
     } catch (error) {
@@ -265,33 +259,6 @@ const Analytics = () => {
     }
   };
 
-  const fetchAverageResolutionTime = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("issues")
-        .select("created_at, updated_at")
-        .eq("status", "resolved");
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) return 0;
-
-      const totalDays = data.reduce((sum, issue) => {
-        const created = new Date(issue.created_at);
-        const resolved = new Date(issue.updated_at);
-        const diffDays = Math.ceil(
-          (resolved.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        return sum + diffDays;
-      }, 0);
-
-      return Math.round(totalDays / data.length);
-    } catch (error) {
-      console.error("Error fetching resolution time:", error);
-      return 0;
-    }
-  };
-
   const fetchCitizenEngagement = async () => {
     try {
       // Total users
@@ -357,7 +324,6 @@ const Analytics = () => {
       report += `${category}: ${count}\n`;
     });
 
-    report += `\nAverage Resolution Time: ${data.averageResolutionTime} days\n`;
     report += `Total Citizens: ${data.citizenEngagement.totalUsers}\n`;
     report += `Active Citizens: ${data.citizenEngagement.activeUsers}\n`;
 
@@ -451,20 +417,6 @@ const Analytics = () => {
                 </p>
               </div>
               <BarChart3 className="w-6 h-6 md:w-8 md:h-8 text-blue-500" />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs md:text-sm font-medium text-gray-600">
-                  Avg. Resolution
-                </p>
-                <p className="text-xl md:text-2xl font-bold text-green-600">
-                  {data.averageResolutionTime} days
-                </p>
-              </div>
-              <Clock className="w-6 h-6 md:w-8 md:h-8 text-green-500" />
             </div>
           </div>
 

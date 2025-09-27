@@ -46,7 +46,6 @@ export interface Issue {
   longitude?: number;
   image_urls: string[];
   assigned_to?: string;
-  resolution_notes?: string;
   upvotes: number;
   upvoted_by: string[];
   downvotes: number;
