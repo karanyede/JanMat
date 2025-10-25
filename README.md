@@ -115,20 +115,27 @@ JanMat (meaning "Public Opinion" in Hindi) is a modern, Instagram-inspired civic
 ## 🗂 Project Structure
 
 ```
-src/
-├── components/          # Reusable UI components
-├── hooks/              # Custom React hooks
-├── lib/                # Utilities and configurations
-├── pages/              # Main application pages
-├── types/              # TypeScript type definitions
-└── utils/              # Helper functions
-
-supabase/
-├── schema.sql          # Database schema
-├── rls_policies.sql    # Security policies
-├── functions.sql       # Database functions
-├── setup_storage.sql   # Storage configuration
-└── seed_data.sql       # Sample data
+JanMat/
+├── src/
+│   ├── components/          # Reusable UI components
+│   │   ├── ui/             # Base UI components
+│   │   └── ...             # Feature components
+│   ├── hooks/              # Custom React hooks
+│   ├── lib/                # Utilities and configurations
+│   ├── pages/              # Main application pages
+│   └── types/              # TypeScript type definitions
+│
+├── supabase/
+│   ├── schema.sql          # Database schema
+│   ├── rls_policies_clean.pgsql  # Security policies
+│   ├── functions.sql       # Database functions
+│   └── setup_storage.sql   # Storage configuration
+│
+├── public/                 # Static assets
+├── .env.example           # Environment variables template
+├── package.json           # Dependencies
+├── vite.config.ts         # Vite configuration
+└── tailwind.config.ts     # Tailwind CSS configuration
 ```
 
 ## 🔒 Security Features
@@ -255,16 +262,16 @@ For issues and questions:
 
    ```sql
    -- 1. Create the schema
-   \i supabase/schema.sql
+   schema.sql
 
    -- 2. Set up Row Level Security
-   \i supabase/rls_policies.sql
+   rls_policies_clean.pgsql
 
    -- 3. Create database functions
-   \i supabase/functions.sql
+   functions.sql
 
-   -- 4. (Optional) Add sample data
-   \i supabase/seed_data.sql
+   -- 4. Set up storage buckets
+   setup_storage.sql
    ```
 
 5. **Start the development server**
@@ -273,6 +280,64 @@ For issues and questions:
    ```
 
 The application will be available at `http://localhost:3000`
+
+## 🧪 Testing
+
+### Running Tests
+
+```bash
+# Run all tests once
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with UI
+npm run test:ui
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Test Structure
+
+The project uses **Vitest** for unit and integration testing with React Testing Library:
+
+```
+src/test/
+├── components/        # Component tests
+├── lib/              # Utility function tests
+├── setup.ts          # Test configuration
+└── mocks.ts          # Mock data and utilities
+```
+
+### Writing Tests
+
+Example component test:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent />);
+    expect(screen.getByText('Hello')).toBeInTheDocument();
+  });
+});
+```
+
+### CI/CD
+
+Automated testing runs on every push and pull request via GitHub Actions:
+
+- ✅ Unit and integration tests
+- ✅ TypeScript type checking
+- ✅ Code coverage reports
+- ✅ Build verification
+- ✅ Security audits
+
+See `.github/workflows/ci.yml` for the complete pipeline configuration.
 
 ## 📱 User Roles
 
