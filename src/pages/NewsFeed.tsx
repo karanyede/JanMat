@@ -4,11 +4,11 @@ import { supabase } from "../lib/supabase";
 import { newsAPI, ExternalNewsArticle } from "../lib/newsAPI";
 import LoadingSpinner from "../components/LoadingSpinner";
 import NewsDetailModal from "../components/NewsDetailModal";
-import { 
-  ExternalLink, 
-  Eye, 
-  Share, 
-  RefreshCw, 
+import {
+  ExternalLink,
+  Eye,
+  Share,
+  RefreshCw,
   Heart,
   Globe,
   Flag,
@@ -23,7 +23,7 @@ import {
   Plus,
   Newspaper,
   Wifi,
-  WifiOff
+  WifiOff,
 } from "lucide-react";
 import { formatRelativeTime } from "../lib/utils";
 import { useAuth } from "../hooks/useAuth";
@@ -35,13 +35,17 @@ const NewsFeed = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<NewsCategory | "all" | "external">("all");
+  const [selectedCategory, setSelectedCategory] = useState<
+    NewsCategory | "all" | "external"
+  >("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [likedNews, setLikedNews] = useState<Set<string>>(new Set());
   const [apiConnected, setApiConnected] = useState(false);
-  
+
   // Modal state
-  const [selectedArticle, setSelectedArticle] = useState<ExternalNewsArticle | News | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<
+    ExternalNewsArticle | News | null
+  >(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExternalArticle, setIsExternalArticle] = useState(false);
 
@@ -57,7 +61,8 @@ const NewsFeed = () => {
       // Fetch local JanMat news from Supabase
       const { data: newsData, error: newsError } = await supabase
         .from("news")
-        .select(`
+        .select(
+          `
           *,
           author:users(
             id,
@@ -66,7 +71,8 @@ const NewsFeed = () => {
             avatar_url,
             department
           )
-        `)
+        `
+        )
         .eq("published", true)
         .order("created_at", { ascending: false });
 
@@ -79,38 +85,43 @@ const NewsFeed = () => {
       // Fetch real-time external news
       try {
         setApiConnected(newsAPI.isConfigured());
-        
+
         if (newsAPI.isConfigured()) {
           // Fetch different types of news
-          const [
-            indiaHeadlines,
-            governmentNews,
-            emergencyNews
-          ] = await Promise.allSettled([
-            newsAPI.getIndiaNews(),
-            newsAPI.getGovernmentNews(),
-            newsAPI.getEmergencyNews()
-          ]);
+          const [indiaHeadlines, governmentNews, emergencyNews] =
+            await Promise.allSettled([
+              newsAPI.getIndiaNews(),
+              newsAPI.getGovernmentNews(),
+              newsAPI.getEmergencyNews(),
+            ]);
 
           // Combine all external news
           const allExternalNews: ExternalNewsArticle[] = [];
-          
-          if (indiaHeadlines.status === 'fulfilled') {
+
+          if (indiaHeadlines.status === "fulfilled") {
             allExternalNews.push(...indiaHeadlines.value);
           }
-          if (governmentNews.status === 'fulfilled') {
+          if (governmentNews.status === "fulfilled") {
             allExternalNews.push(...governmentNews.value);
           }
-          if (emergencyNews.status === 'fulfilled') {
+          if (emergencyNews.status === "fulfilled") {
             allExternalNews.push(...emergencyNews.value);
           }
 
           // Remove duplicates and sort by date
           const uniqueNews = allExternalNews
-            .filter((article, index, self) => 
-              index === self.findIndex(a => a.id === article.id || a.title === article.title)
+            .filter(
+              (article, index, self) =>
+                index ===
+                self.findIndex(
+                  (a) => a.id === article.id || a.title === article.title
+                )
             )
-            .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+            .sort(
+              (a, b) =>
+                new Date(b.publishedAt).getTime() -
+                new Date(a.publishedAt).getTime()
+            )
             .slice(0, 20); // Limit to 20 articles
 
           setExternalNews(uniqueNews);
@@ -119,13 +130,18 @@ const NewsFeed = () => {
           setExternalNews(newsAPI.getDemoNews());
         }
       } catch (apiError: any) {
-        console.warn('External news API failed, using demo data:', apiError);
-        
+        console.warn("External news API failed, using demo data:", apiError);
+
         // Check if it's a quota limit error
-        if (apiError.message?.includes('quota') || apiError.message?.includes('limit')) {
-          setError('News API daily quota exceeded. Showing demo content. Quota resets at midnight UTC.');
+        if (
+          apiError.message?.includes("quota") ||
+          apiError.message?.includes("limit")
+        ) {
+          setError(
+            "News API daily quota exceeded. Showing demo content. Quota resets at midnight UTC."
+          );
         }
-        
+
         setExternalNews(newsAPI.getDemoNews());
         setApiConnected(false);
       }
@@ -133,11 +149,10 @@ const NewsFeed = () => {
       // Set liked news from user data
       if (user && newsData) {
         const userLikedNews = newsData
-          .filter(n => n.liked_by?.includes(user.id))
-          .map(n => n.id);
+          .filter((n) => n.liked_by?.includes(user.id))
+          .map((n) => n.id);
         setLikedNews(new Set(userLikedNews));
       }
-
     } catch (err) {
       console.error("Error fetching news:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch news");
@@ -151,20 +166,28 @@ const NewsFeed = () => {
     fetchNews();
   }, [user]);
 
-  const openNewsModal = async (article: ExternalNewsArticle | News, isExternal: boolean = false) => {
+  const openNewsModal = async (
+    article: ExternalNewsArticle | News,
+    isExternal: boolean = false
+  ) => {
     console.log("Opening news modal for:", article.title);
     console.log("Is external:", isExternal);
     console.log("User:", user?.id);
-    
+
     setSelectedArticle(article);
     setIsExternalArticle(isExternal);
     setIsModalOpen(true);
-    
+
     // Increment view count for internal JanMat news only
     if (!isExternal && user) {
       await incrementViewCount(article as News);
     } else {
-      console.log("Not incrementing views - isExternal:", isExternal, "user:", !!user);
+      console.log(
+        "Not incrementing views - isExternal:",
+        isExternal,
+        "user:",
+        !!user
+      );
     }
   };
 
@@ -183,32 +206,38 @@ const NewsFeed = () => {
     try {
       const currentViews = newsItem.views || 0;
       const newViewCount = currentViews + 1;
-      
-      console.log("Incrementing views from", currentViews, "to", newViewCount, "for article:", newsItem.id);
-      
+
+      console.log(
+        "Incrementing views from",
+        currentViews,
+        "to",
+        newViewCount,
+        "for article:",
+        newsItem.id
+      );
+
       // Update views in database
       const { data, error } = await supabase
         .from("news")
         .update({ views: newViewCount })
         .eq("id", newsItem.id)
         .select();
-      
+
       if (error) {
         console.error("Error updating views:", error);
         throw error;
       }
-      
+
       console.log("Successfully updated views in database:", data);
-      
+
       // Update local state to reflect new view count
-      setNews(prev => prev.map(n => 
-        n.id === newsItem.id 
-          ? { ...n, views: newViewCount }
-          : n
-      ));
-      
+      setNews((prev) =>
+        prev.map((n) =>
+          n.id === newsItem.id ? { ...n, views: newViewCount } : n
+        )
+      );
+
       console.log("Updated local state with new view count");
-      
     } catch (err) {
       console.error("Error incrementing view count:", err);
     }
@@ -218,30 +247,32 @@ const NewsFeed = () => {
     if (!user) return;
 
     try {
-      const newsItem = news.find(n => n.id === newsId);
+      const newsItem = news.find((n) => n.id === newsId);
       if (!newsItem) return;
 
       const isLiked = likedNews.has(newsId);
-      const newLikedBy = isLiked 
-        ? newsItem.liked_by.filter(id => id !== user.id)
+      const newLikedBy = isLiked
+        ? newsItem.liked_by.filter((id) => id !== user.id)
         : [...newsItem.liked_by, user.id];
 
       const { error } = await supabase
         .from("news")
         .update({
           liked_by: newLikedBy,
-          likes: newLikedBy.length
+          likes: newLikedBy.length,
         })
         .eq("id", newsId);
 
       if (error) throw error;
 
       // Update local state
-      setNews(prev => prev.map(n => 
-        n.id === newsId 
-          ? { ...n, liked_by: newLikedBy, likes: newLikedBy.length }
-          : n
-      ));
+      setNews((prev) =>
+        prev.map((n) =>
+          n.id === newsId
+            ? { ...n, liked_by: newLikedBy, likes: newLikedBy.length }
+            : n
+        )
+      );
 
       // Update liked news set
       const newLikedNews = new Set(likedNews);
@@ -251,7 +282,6 @@ const NewsFeed = () => {
         newLikedNews.add(newsId);
       }
       setLikedNews(newLikedNews);
-
     } catch (err) {
       console.error("Error updating like:", err);
     }
@@ -260,17 +290,23 @@ const NewsFeed = () => {
   const handleShare = async (newsItem: News) => {
     const shareData = {
       title: newsItem.title,
-      text: newsItem.content.substring(0, 200) + '...',
-      url: `${window.location.origin}/news/${newsItem.id}`
+      text: newsItem.content.substring(0, 200) + "...",
+      url: `${window.location.origin}/news/${newsItem.id}`,
     };
 
     try {
-      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare(shareData)
+      ) {
         await navigator.share(shareData);
       } else {
         // Fallback - copy to clipboard
-        await navigator.clipboard.writeText(`${newsItem.title}\n\n${shareData.text}\n\nRead more: ${shareData.url}`);
-        
+        await navigator.clipboard.writeText(
+          `${newsItem.title}\n\n${shareData.text}\n\nRead more: ${shareData.url}`
+        );
+
         // Show toast notification (you can replace this with your notification system)
         alert("News link copied to clipboard!");
       }
@@ -278,7 +314,9 @@ const NewsFeed = () => {
       console.error("Error sharing:", err);
       // Fallback to copy to clipboard
       try {
-        await navigator.clipboard.writeText(`${newsItem.title}\n\n${shareData.text}\n\nRead more: ${shareData.url}`);
+        await navigator.clipboard.writeText(
+          `${newsItem.title}\n\n${shareData.text}\n\nRead more: ${shareData.url}`
+        );
         alert("News link copied to clipboard!");
       } catch (clipboardErr) {
         console.error("Clipboard access failed:", clipboardErr);
@@ -289,56 +327,112 @@ const NewsFeed = () => {
 
   const getCategoryIcon = (category: NewsCategory | "all" | "external") => {
     switch (category) {
-      case "all": return <Grid className="w-4 h-4" />;
-      case "external": return <Wifi className="w-4 h-4" />;
-      case "announcement": return <Globe className="w-4 h-4" />;
-      case "policy": return <Flag className="w-4 h-4" />;
-      case "development": return <Building className="w-4 h-4" />;
-      case "emergency": return <TrendingUp className="w-4 h-4" />;
-      default: return <MapPin className="w-4 h-4" />;
+      case "all":
+        return <Grid className="w-4 h-4" />;
+      case "external":
+        return <Wifi className="w-4 h-4" />;
+      case "announcement":
+        return <Globe className="w-4 h-4" />;
+      case "policy":
+        return <Flag className="w-4 h-4" />;
+      case "development":
+        return <Building className="w-4 h-4" />;
+      case "emergency":
+        return <TrendingUp className="w-4 h-4" />;
+      default:
+        return <MapPin className="w-4 h-4" />;
     }
   };
 
   const getCategoryColor = (category: NewsCategory) => {
     switch (category) {
-      case "announcement": return "bg-blue-500";
-      case "policy": return "bg-green-500";
-      case "development": return "bg-purple-500";
-      case "emergency": return "bg-red-500";
-      case "event": return "bg-yellow-500";
-      case "budget": return "bg-indigo-500";
-      case "services": return "bg-pink-500";
-      default: return "bg-gray-500";
+      case "announcement":
+        return "bg-blue-500";
+      case "policy":
+        return "bg-green-500";
+      case "development":
+        return "bg-purple-500";
+      case "emergency":
+        return "bg-red-500";
+      case "event":
+        return "bg-yellow-500";
+      case "budget":
+        return "bg-indigo-500";
+      case "services":
+        return "bg-pink-500";
+      default:
+        return "bg-gray-500";
     }
   };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case "high":
-        return <span className="px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-full">High Priority</span>;
+        return (
+          <span className="px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-full">
+            High Priority
+          </span>
+        );
       case "medium":
-        return <span className="px-2 py-1 text-xs font-semibold text-white bg-yellow-500 rounded-full">Medium</span>;
+        return (
+          <span className="px-2 py-1 text-xs font-semibold text-white bg-yellow-500 rounded-full">
+            Medium
+          </span>
+        );
       case "low":
-        return <span className="px-2 py-1 text-xs font-semibold text-white bg-green-500 rounded-full">Low</span>;
+        return (
+          <span className="px-2 py-1 text-xs font-semibold text-white bg-green-500 rounded-full">
+            Low
+          </span>
+        );
       default:
         return null;
     }
   };
 
-  const filteredNews = selectedCategory === "all" 
-    ? news 
-    : selectedCategory === "external"
-      ? [] // External news will be handled separately
-      : news.filter(item => item.category === selectedCategory);
+  const filteredNews =
+    selectedCategory === "all"
+      ? news
+      : selectedCategory === "external"
+        ? [] // External news will be handled separately
+        : news.filter((item) => item.category === selectedCategory);
 
-  const categories: Array<{key: NewsCategory | "all" | "external", label: string, count: number}> = [
+  const categories: Array<{
+    key: NewsCategory | "all" | "external";
+    label: string;
+    count: number;
+  }> = [
     { key: "all", label: "JanMat News", count: news.length },
-    { key: "external", label: `Live News ${apiConnected ? '🟢' : '🔴'}`, count: externalNews.length },
-    { key: "announcement", label: "Announcements", count: news.filter(n => n.category === "announcement").length },
-    { key: "policy", label: "Policies", count: news.filter(n => n.category === "policy").length },
-    { key: "development", label: "Development", count: news.filter(n => n.category === "development").length },
-    { key: "emergency", label: "Emergency", count: news.filter(n => n.category === "emergency").length },
-    { key: "event", label: "Events", count: news.filter(n => n.category === "event").length },
+    {
+      key: "external",
+      label: `Live News ${apiConnected ? "🟢" : "🔴"}`,
+      count: externalNews.length,
+    },
+    {
+      key: "announcement",
+      label: "Announcements",
+      count: news.filter((n) => n.category === "announcement").length,
+    },
+    {
+      key: "policy",
+      label: "Policies",
+      count: news.filter((n) => n.category === "policy").length,
+    },
+    {
+      key: "development",
+      label: "Development",
+      count: news.filter((n) => n.category === "development").length,
+    },
+    {
+      key: "emergency",
+      label: "Emergency",
+      count: news.filter((n) => n.category === "emergency").length,
+    },
+    {
+      key: "event",
+      label: "Events",
+      count: news.filter((n) => n.category === "event").length,
+    },
   ];
 
   if (loading) {
@@ -347,32 +441,39 @@ const NewsFeed = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
+      {/* Header Section - Compact on mobile */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-3">
-              <Globe className="w-10 h-10" />
+            <h1 className="text-xl md:text-4xl font-bold mb-2 md:mb-4 flex items-center justify-center gap-2 md:gap-3">
+              <Globe className="w-6 h-6 md:w-10 md:h-10" />
               JanMat News Hub
             </h1>
-            <p className="text-xl text-blue-100 mb-6">
-              Stay informed with the latest updates from your community and live news
-              {apiConnected && <span className="inline-flex items-center gap-1 ml-2 text-green-200">
-                <Wifi className="w-4 h-4" />
-                Live
-              </span>}
+            <p className="text-sm md:text-xl text-blue-100 mb-3 md:mb-6 hidden md:block">
+              Stay informed with the latest updates from your community and live
+              news
+              {apiConnected && (
+                <span className="inline-flex items-center gap-1 ml-2 text-green-200">
+                  <Wifi className="w-4 h-4" />
+                  Live
+                </span>
+              )}
             </p>
-            
-            <div className="flex items-center justify-center gap-8 text-blue-100">
+
+            <div className="flex items-center justify-center gap-4 md:gap-8 text-blue-100 text-xs md:text-base">
               <div className="text-center">
-                <div className="text-2xl font-bold text-white">{news.length}+</div>
-                <div className="text-sm">JanMat News</div>
+                <div className="text-lg md:text-2xl font-bold text-white">
+                  {news.length}+
+                </div>
+                <div className="text-xs md:text-sm">JanMat News</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-white">{externalNews.length}+</div>
-                <div className="text-sm">Live News</div>
+                <div className="text-lg md:text-2xl font-bold text-white">
+                  {externalNews.length}+
+                </div>
+                <div className="text-xs md:text-sm">Live News</div>
               </div>
-              <div className="text-center">
+              <div className="text-center hidden md:block">
                 <div className="text-2xl font-bold text-white">Real-time</div>
                 <div className="text-sm">Updates</div>
               </div>
@@ -381,64 +482,70 @@ const NewsFeed = () => {
         </div>
       </div>
 
-      {/* Category Filters */}
+      {/* Category Filters - Compact on mobile */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Filter className="w-5 h-5" />
-              Filter by Category
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-4">
+          <div className="flex items-center justify-between mb-2 md:mb-4">
+            <h2 className="text-sm md:text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Filter className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="hidden md:inline">Filter by Category</span>
+              <span className="md:hidden">Filters</span>
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2">
               <button
                 onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-lg transition-colors ${
-                  viewMode === "grid" 
-                    ? "bg-blue-100 text-blue-600" 
+                className={`p-1.5 md:p-2 rounded-lg transition-colors ${
+                  viewMode === "grid"
+                    ? "bg-blue-100 text-blue-600"
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <Grid className="w-5 h-5" />
+                <Grid className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-2 rounded-lg transition-colors ${
-                  viewMode === "list" 
-                    ? "bg-blue-100 text-blue-600" 
+                className={`p-1.5 md:p-2 rounded-lg transition-colors ${
+                  viewMode === "list"
+                    ? "bg-blue-100 text-blue-600"
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <List className="w-5 h-5" />
+                <List className="w-4 h-4 md:w-5 md:h-5" />
               </button>
               <button
                 onClick={() => fetchNews(true)}
                 disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1.5 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-xs md:text-sm"
               >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-                Refresh
+                <RefreshCw
+                  className={`w-3 h-3 md:w-4 md:h-4 ${refreshing ? "animate-spin" : ""}`}
+                />
+                <span className="hidden md:inline">Refresh</span>
               </button>
             </div>
           </div>
-          
-          <div className="flex flex-wrap gap-2">
+
+          <div className="flex flex-wrap gap-1.5 md:gap-2 overflow-x-auto pb-1">
             {categories.map(({ key, label, count }) => (
               <button
                 key={key}
                 onClick={() => setSelectedCategory(key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all ${
+                className={`flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1 md:py-2 rounded-full font-medium transition-all text-xs md:text-sm whitespace-nowrap ${
                   selectedCategory === key
                     ? "bg-blue-600 text-white shadow-lg"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 {getCategoryIcon(key)}
-                <span>{label}</span>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  selectedCategory === key
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 text-gray-600"
-                }`}>
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden">{label.split(" ")[0]}</span>
+                <span
+                  className={`px-1.5 md:px-2 py-0.5 md:py-1 text-xs rounded-full ${
+                    selectedCategory === key
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-200 text-gray-600"
+                  }`}
+                >
                   {count}
                 </span>
               </button>
@@ -462,17 +569,30 @@ const NewsFeed = () => {
               {apiConnected ? (
                 <>
                   <Wifi className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading live news...</h3>
-                  <p className="text-gray-600">Fetching the latest news from across India</p>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Loading live news...
+                  </h3>
+                  <p className="text-gray-600">
+                    Fetching the latest news from across India
+                  </p>
                 </>
               ) : (
                 <>
                   <WifiOff className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">API Not Configured</h3>
-                  <p className="text-gray-600">Add your GNews API key to get real-time news</p>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    API Not Configured
+                  </h3>
+                  <p className="text-gray-600">
+                    Add your GNews API key to get real-time news
+                  </p>
                   <p className="text-sm text-blue-600 mt-2">
                     Get free API key at{" "}
-                    <a href="https://gnews.io/register" target="_blank" rel="noopener noreferrer" className="underline">
+                    <a
+                      href="https://gnews.io/register"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
                       gnews.io
                     </a>
                   </p>
@@ -480,11 +600,11 @@ const NewsFeed = () => {
               )}
             </div>
           ) : (
-            <div className={
-              viewMode === "grid" 
-                ? "grid grid-cols-1 gap-6"
-                : "space-y-6"
-            }>
+            <div
+              className={
+                viewMode === "grid" ? "grid grid-cols-1 gap-6" : "space-y-6"
+              }
+            >
               {externalNews.map((article) => (
                 <article
                   key={article.id}
@@ -494,9 +614,11 @@ const NewsFeed = () => {
                   onClick={() => openNewsModal(article, true)}
                 >
                   {/* External News Image */}
-                  <div className={`relative overflow-hidden ${
-                    viewMode === "list" ? "w-48 flex-shrink-0" : "h-48"
-                  }`}>
+                  <div
+                    className={`relative overflow-hidden ${
+                      viewMode === "list" ? "w-48 flex-shrink-0" : "h-48"
+                    }`}
+                  >
                     {article.image ? (
                       <img
                         src={article.image}
@@ -508,7 +630,7 @@ const NewsFeed = () => {
                         <Newspaper className="w-12 h-12 text-white opacity-50" />
                       </div>
                     )}
-                    
+
                     {/* Live News Badge */}
                     <div className="absolute top-3 left-3">
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold text-white bg-red-500 animate-pulse">
@@ -561,8 +683,8 @@ const NewsFeed = () => {
                         <Eye className="w-4 h-4" />
                         Read Full
                       </button>
-                      
-                      <button 
+
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           if (navigator.share) {
@@ -581,7 +703,7 @@ const NewsFeed = () => {
                         <Share className="w-4 h-4" />
                         <span className="hidden sm:inline">Share</span>
                       </button>
-                      
+
                       <a
                         href={article.url}
                         target="_blank"
@@ -598,165 +720,176 @@ const NewsFeed = () => {
               ))}
             </div>
           )
+        ) : // Internal JanMat News Rendering
+        filteredNews.length === 0 ? (
+          <div className="text-center py-12">
+            <Globe className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No news found
+            </h3>
+            <p className="text-gray-600">
+              {selectedCategory === "all"
+                ? "No news articles are available at the moment."
+                : `No news found for the ${selectedCategory} category.`}
+            </p>
+          </div>
         ) : (
-          // Internal JanMat News Rendering
-          filteredNews.length === 0 ? (
-            <div className="text-center py-12">
-              <Globe className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No news found</h3>
-              <p className="text-gray-600">
-                {selectedCategory === "all" 
-                  ? "No news articles are available at the moment." 
-                  : `No news found for the ${selectedCategory} category.`}
-              </p>
-            </div>
-          ) : (
-            <div className={
-              viewMode === "grid" 
-                ? "grid grid-cols-1 gap-6"
-                : "space-y-6"
-            }>
-              {filteredNews.map((item) => (
-                <article
-                  key={item.id}
-                  className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer ${
-                    viewMode === "list" ? "flex" : ""
-                  }`}
-                  onClick={() => openNewsModal(item, false)}
-                >
-                  {/* Image Section */}
-                  <div className={`relative overflow-hidden ${
+          <div
+            className={
+              viewMode === "grid" ? "grid grid-cols-1 gap-6" : "space-y-6"
+            }
+          >
+            {filteredNews.map((item) => (
+              <article
+                key={item.id}
+                className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer ${
+                  viewMode === "list" ? "flex" : ""
+                }`}
+                onClick={() => openNewsModal(item, false)}
+              >
+                {/* Image Section */}
+                <div
+                  className={`relative overflow-hidden ${
                     viewMode === "list" ? "w-48 flex-shrink-0" : "h-48"
-                  }`}>
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                        <Globe className="w-12 h-12 text-white opacity-50" />
-                      </div>
-                    )}
-                    
-                    {/* Category Badge */}
-                    <div className="absolute top-3 left-3">
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold text-white ${getCategoryColor(item.category)}`}>
-                        {getCategoryIcon(item.category)}
-                        {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                  }`}
+                >
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                      <Globe className="w-12 h-12 text-white opacity-50" />
+                    </div>
+                  )}
+
+                  {/* Category Badge */}
+                  <div className="absolute top-3 left-3">
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold text-white ${getCategoryColor(item.category)}`}
+                    >
+                      {getCategoryIcon(item.category)}
+                      {item.category.charAt(0).toUpperCase() +
+                        item.category.slice(1)}
+                    </span>
+                  </div>
+
+                  {/* Priority Badge */}
+                  {item.priority === "high" && (
+                    <div className="absolute top-3 right-3">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full animate-pulse">
+                        <TrendingUp className="w-3 h-3" />
+                        Urgent
                       </span>
                     </div>
+                  )}
+                </div>
 
-                    {/* Priority Badge */}
-                    {item.priority === "high" && (
-                      <div className="absolute top-3 right-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full animate-pulse">
-                          <TrendingUp className="w-3 h-3" />
-                          Urgent
+                {/* Content Section */}
+                <div className="p-6 flex-1 flex flex-col">
+                  {/* Title Section */}
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">
+                      {item.title}
+                    </h3>
+                    {getPriorityBadge(item.priority)}
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-gray-600 mb-4 line-clamp-3 flex-grow">
+                    {item.content}
+                  </p>
+
+                  {/* Meta Information */}
+                  <div className="flex items-center gap-4 text-sm text-gray-500 mb-4 flex-wrap">
+                    <div className="flex items-center gap-1">
+                      <User className="w-4 h-4" />
+                      <span>{item.author?.full_name || "Government"}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      <span>{formatRelativeTime(item.created_at)}</span>
+                    </div>
+                    {item.location && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        <span className="truncate max-w-[100px]">
+                          {item.location}
                         </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Content Section */}
-                  <div className="p-6 flex-1 flex flex-col">
-                    {/* Title Section */}
-                    <div className="mb-4">
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">
-                        {item.title}
-                      </h3>
-                      {getPriorityBadge(item.priority)}
+                  {/* Stats */}
+                  <div className="flex items-center gap-6 text-sm text-gray-500 mb-6 pb-4 border-b border-gray-100">
+                    <div className="flex items-center gap-1">
+                      <Eye className="w-4 h-4" />
+                      <span>{item.views || 0} views</span>
                     </div>
-
-                    {/* Description */}
-                    <p className="text-gray-600 mb-4 line-clamp-3 flex-grow">
-                      {item.content}
-                    </p>
-
-                    {/* Meta Information */}
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4 flex-wrap">
-                      <div className="flex items-center gap-1">
-                        <User className="w-4 h-4" />
-                        <span>{item.author?.full_name || "Government"}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        <span>{formatRelativeTime(item.created_at)}</span>
-                      </div>
-                      {item.location && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          <span className="truncate max-w-[100px]">{item.location}</span>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-1">
+                      <Heart className="w-4 h-4" />
+                      <span>{item.likes} likes</span>
                     </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-6 text-sm text-gray-500 mb-6 pb-4 border-b border-gray-100">
-                      <div className="flex items-center gap-1">
-                        <Eye className="w-4 h-4" />
-                        <span>{item.views || 0} views</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Heart className="w-4 h-4" />
-                        <span>{item.likes} likes</span>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="mt-auto">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLike(item.id);
-                          }}
-                          className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all text-sm flex-1 justify-center ${
-                            likedNews.has(item.id)
-                              ? "bg-red-500 text-white hover:bg-red-600"
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                          }`}
-                        >
-                          <Heart className={`w-4 h-4 ${likedNews.has(item.id) ? "fill-current" : ""}`} />
-                          <span>{item.likes || 0}</span>
-                        </button>
-                        
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleShare(item);
-                          }}
-                          className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm flex-1 justify-center"
-                        >
-                          <Share className="w-4 h-4" />
-                          <span>Share</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* External Link */}
-                    {item.external_url && (
-                      <a
-                        href={item.external_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-2 mt-4 text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Read full article
-                      </a>
-                    )}
                   </div>
-                </article>
-              ))}
-            </div>
-          )
+
+                  {/* Action Buttons */}
+                  <div className="mt-auto">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLike(item.id);
+                        }}
+                        className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all text-sm flex-1 justify-center ${
+                          likedNews.has(item.id)
+                            ? "bg-red-500 text-white hover:bg-red-600"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <Heart
+                          className={`w-4 h-4 ${likedNews.has(item.id) ? "fill-current" : ""}`}
+                        />
+                        <span>{item.likes || 0}</span>
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShare(item);
+                        }}
+                        className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm flex-1 justify-center"
+                      >
+                        <Share className="w-4 h-4" />
+                        <span>Share</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* External Link */}
+                  {item.external_url && (
+                    <a
+                      href={item.external_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-2 mt-4 text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Read full article
+                    </a>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
         )}
 
         {/* Load More Button */}
-        {(selectedCategory === "external" ? externalNews.length > 0 : filteredNews.length > 0) && (
+        {(selectedCategory === "external"
+          ? externalNews.length > 0
+          : filteredNews.length > 0) && (
           <div className="text-center mt-12">
             <button className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
               <Plus className="w-5 h-5" />
@@ -769,7 +902,9 @@ const NewsFeed = () => {
       {/* Bottom CTA Section */}
       <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">Stay Connected with JanMat</h2>
+          <h2 className="text-3xl font-bold mb-4">
+            Stay Connected with JanMat
+          </h2>
           <p className="text-xl text-gray-300 mb-8">
             Join thousands of citizens making a difference in their communities
           </p>

@@ -3,7 +3,6 @@ import { supabase } from "../lib/supabase";
 import { Poll, Post } from "../types";
 import { useAuth } from "../hooks/useAuth";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { ConfigurationStatus } from "../components/ConfigurationStatus";
 import { createPollVoteNotification } from "../lib/notificationUtils";
 import {
   Calendar,
@@ -52,12 +51,22 @@ const Polls = () => {
 
       if (pollsError) {
         console.error("Error fetching polls:", pollsError);
-        
+
         // Check if it's a connection error
-        if (pollsError.message?.includes('Failed to fetch') || pollsError.message?.includes('network')) {
-          setError("Database connection failed. Please check your Supabase configuration.");
-        } else if (pollsError.message?.includes('JWT') || pollsError.message?.includes('unauthorized')) {
-          setError("Authentication error. Please check your Supabase API keys.");
+        if (
+          pollsError.message?.includes("Failed to fetch") ||
+          pollsError.message?.includes("network")
+        ) {
+          setError(
+            "Database connection failed. Please check your Supabase configuration."
+          );
+        } else if (
+          pollsError.message?.includes("JWT") ||
+          pollsError.message?.includes("unauthorized")
+        ) {
+          setError(
+            "Authentication error. Please check your Supabase API keys."
+          );
         } else {
           setError("Failed to load polls. Please try again.");
         }
@@ -266,9 +275,6 @@ const Polls = () => {
 
   return (
     <div className="w-full">
-      {/* Configuration Status Check */}
-      <ConfigurationStatus />
-      
       {/* Header */}
       <div className="sticky top-16 md:top-0 bg-white border-b border-gray-200 z-10 md:hidden">
         <div className="px-4 py-3 flex items-center justify-between">
